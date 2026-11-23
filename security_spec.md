@@ -1,4 +1,4 @@
-# Apna Music Firestore Security Specification
+# Aura Music Firestore Security Specification
 
 ## 1. Data Invariants
 1. **Zero Passwords / Zero Secrets**: No document in `/login_events`, `/users`, or `/users/{userId}/private/info` may contain `password`, `passwordHash`, `token`, `accessToken`, `secret`, or any unlisted ghost field. Enforced via `keys().hasAll(...) && keys().hasOnly(...)`.

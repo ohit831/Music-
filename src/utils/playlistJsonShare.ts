@@ -4,6 +4,9 @@
  */
 
 import { Playlist } from './musicDiscovery';
+import { getAppBaseUrl } from './appUrl';
+
+const DEFAULT_APP_URL = 'https://ohit831.github.io/Music-/';
 
 export const PLAYLIST_GRADIENT_PRESETS = [
   'from-emerald-600 via-teal-900 to-black',
@@ -156,8 +159,8 @@ export function buildPlaylistJsonShareLink(
   const resolvedOrigin =
     origin ||
     (typeof window !== 'undefined' && window.location?.origin
-      ? window.location.origin
-      : 'https://apnamusic.app');
+      ? getAppBaseUrl(window.location.origin)
+      : DEFAULT_APP_URL);
 
   const base = resolvedOrigin.replace(/\/+$/, '');
   const shareUrl = `${base}/?${PLAYLIST_JSON_QUERY_PARAM}=${encodedPayload}`;
@@ -285,7 +288,7 @@ export function parsePlaylistJsonInput(
     try {
       const url = clean.startsWith('http://') || clean.startsWith('https://')
         ? new URL(clean)
-        : new URL(clean.startsWith('?') ? `https://apnamusic.app/${clean}` : `https://apnamusic.app/?${clean}`);
+        : new URL(clean.startsWith('?') ? `${DEFAULT_APP_URL}${clean}` : `${DEFAULT_APP_URL}?${clean}`);
       const param = url.searchParams.get(PLAYLIST_JSON_QUERY_PARAM);
       if (param) {
         return decodePlaylistJsonPayload(param, knownTrackIds);

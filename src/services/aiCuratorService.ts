@@ -286,7 +286,7 @@ function generateAlgorithmicCuratorFallback(context: {
 
   const titlePrefix = timeframe === 'daily' ? 'AI Daily Radar' : 'Weekly Deep Dive';
   const playlistTitle = `${titlePrefix}: ${tasteProfile.personaTitle} Vol. ${new Date().getDate()}`;
-  const playlistDescription = `Hand-curated by Apna Music AI analyzing ${likedTracks.length} liked tracks and avoiding ${skipped.length} skipped styles. Spotlights underground artists with <10k monthly listeners.`;
+  const playlistDescription = `Hand-curated by Aura Music AI analyzing ${likedTracks.length} liked tracks and avoiding ${skipped.length} skipped styles. Spotlights underground artists with <10k monthly listeners.`;
 
   const curatorNote = `Welcome to your ${timeframe} curated dispatch. Based on your love for ${
     tasteProfile.topGenres[0]?.genre || 'atmospheric indie'

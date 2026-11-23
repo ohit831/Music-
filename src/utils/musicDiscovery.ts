@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { getAppBaseUrl } from './appUrl';
+
 export interface IndieTrack {
   id: string;
   title: string;
@@ -307,9 +309,11 @@ export function createSharePayload(track: IndieTrack, note?: string): {
 
   const json = JSON.stringify(payload);
   const encoded = typeof btoa !== 'undefined' ? btoa(unescape(encodeURIComponent(json))) : Buffer.from(json).toString('base64');
-  const appOrigin = typeof window !== 'undefined' && window.location ? window.location.origin : 'https://indiewave.app';
-  const shareUrl = `${appOrigin}/?track=${encodeURIComponent(track.id)}&ref=share&s=${encodeURIComponent(encoded)}`;
-  const summaryText = `Check out "${track.title}" by ${track.artist} on Apna Music! #ApnaMusic #${track.genre.replace(/\s+/g, '')}`;
+  const appBaseUrl = typeof window !== 'undefined' && window.location
+    ? getAppBaseUrl(window.location.origin)
+    : 'https://ohit831.github.io/Music-/';
+  const shareUrl = `${appBaseUrl}?track=${encodeURIComponent(track.id)}&ref=share&s=${encodeURIComponent(encoded)}`;
+  const summaryText = `Check out "${track.title}" by ${track.artist} on Aura Music! #AuraMusic #${track.genre.replace(/\s+/g, '')}`;
 
   return {
     payloadStr: encoded,

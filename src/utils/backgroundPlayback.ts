@@ -204,8 +204,8 @@ export function buildMediaMetadataInit(track: IndieTrack): MediaMetadataPayload 
 
   return {
     title: track.title || 'Unknown Track',
-    artist: track.artist || 'Apna Music',
-    album: track.album || 'Apna Music • Background Play',
+    artist: track.artist || 'Aura Music',
+    album: track.album || 'Aura Music • Background Play',
     artwork: [
       { src: cover, sizes: '96x96', type: 'image/jpeg' },
       { src: cover, sizes: '192x192', type: 'image/jpeg' },

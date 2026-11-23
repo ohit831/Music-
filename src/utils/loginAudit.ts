@@ -176,10 +176,10 @@ export function buildOwnerEmailReportUrl(events: SanitizedLoginEvent[]): string 
     (e, i) =>
       `${i + 1}. ${e.visitorName} <${e.visitorEmail}> | Method: ${e.loginMethod} | Device: ${e.deviceLabel} | Vibe: ${e.gymVibe} | At: ${new Date(e.loggedInAtMs).toLocaleString()}`
   );
-  const subject = encodeURIComponent(`Apna Music Visitor Login Activity (${events.length} logins)`);
+  const subject = encodeURIComponent(`Aura Music Visitor Login Activity (${events.length} logins)`);
   const body = encodeURIComponent(
     [
-      'Apna Music - Non-Sensitive Visitor Login Summary (No Passwords Included)',
+      'Aura Music - Non-Sensitive Visitor Login Summary (No Passwords Included)',
       `Total Logged Events: ${events.length}`,
       '',
       ...lines,

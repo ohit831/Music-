@@ -32,7 +32,7 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
       const res = await install();
       setInstalling(false);
       if (res.success) {
-        onInstalledToast?.('Apna Music installed to your device.');
+        onInstalledToast?.('Aura Music installed to your device.');
       } else if (res.outcome !== 'dismissed') {
         onOpenInstallModal();
       }
@@ -49,7 +49,7 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
         disabled={installing}
         data-testid="pwa-install-button-mobile"
         data-install-ready={isInstallable ? 'true' : 'false'}
-        aria-label={isInstallable ? 'Install Apna Music app' : isIOS ? 'Install Apna Music on iOS' : 'Install Apna Music app'}
+        aria-label={isInstallable ? 'Install Aura Music app' : isIOS ? 'Install Aura Music on iOS' : 'Install Aura Music app'}
         className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold transition-all active:scale-95 cursor-pointer disabled:opacity-60 ${
           isInstallable
             ? 'bg-emerald-400 text-black hover:bg-emerald-300 shadow-sm'
@@ -73,7 +73,7 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
       disabled={installing}
       data-testid="pwa-install-button-desktop"
       data-install-ready={isInstallable ? 'true' : 'false'}
-      aria-label={isInstallable ? 'Install Apna Music app' : isIOS ? 'Install Apna Music on iOS' : 'Install Apna Music app'}
+      aria-label={isInstallable ? 'Install Aura Music app' : isIOS ? 'Install Aura Music on iOS' : 'Install Aura Music app'}
       className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all active:scale-95 cursor-pointer disabled:opacity-60 ${
         isInstallable
           ? 'bg-emerald-400 text-black hover:bg-emerald-300 shadow-sm'

@@ -19,9 +19,11 @@ import {
   decodeSharePayload,
 } from './utils/musicDiscovery';
 import { audioEngine } from './services/audioEngine';
+import { APP_BASE_URL } from './utils/appUrl';
 
 // Components
 import { Sidebar, ActiveNavTab } from './components/Sidebar';
+import { FriendActivityBar } from './components/FriendActivityBar';
 import { PlayerBar } from './components/PlayerBar';
 import { ShareModal } from './components/ShareModal';
 import { PlaylistModal } from './components/PlaylistModal';
@@ -890,7 +892,7 @@ export default function App() {
       trackIds,
       isPersonalized: true,
       createdAt: 'Just now',
-      owner: 'Apna Music AI',
+      owner: 'Aura Music AI',
     };
     setPlaylists((prev) => [newPl, ...prev]);
     setActiveHomePlaylistId(newPl.id);
@@ -1106,7 +1108,7 @@ export default function App() {
   const likedPlaylist: Playlist = {
     id: 'pl-liked',
     title: 'Liked Songs',
-    description: 'Your saved collection of favorite tracks across Apna Music.',
+    description: 'Your saved collection of favorite tracks across Aura Music.',
     coverGradient: 'from-indigo-600 via-purple-700 to-rose-600',
     coverEmoji: '❤️',
     trackIds: likedTracks.map((t) => t.id),
@@ -1158,9 +1160,10 @@ export default function App() {
 
   return (
     <div
+      data-app-shell
       data-theme={playbackSettings.theme}
       data-animated-focus={isAnimatedFocusActive ? 'on' : 'off'}
-      className={`relative isolate flex flex-col h-screen w-screen overflow-hidden ${themeBgClass} text-[#f3f3f3] transition-colors duration-500`}
+      className={`relative isolate flex flex-col h-screen w-screen overflow-hidden bg-black text-[#f3f3f3] transition-colors duration-500 ${themeBgClass}`}
     >
       {/* Subtle track-reactive Animated Focus CSS gradient background */}
       <AnimatedFocusBackdrop
@@ -1182,18 +1185,18 @@ export default function App() {
 
       {/* Mobile Top App Bar */}
       <header
-        className={`md:hidden relative flex items-center justify-between gap-1.5 px-2.5 py-2 backdrop-blur-xl border-b border-white/[0.08] shrink-0 select-none z-30 transition-colors duration-500 ${
+        className={`music-app-mobile-header md:hidden relative flex items-center justify-between gap-1.5 px-2.5 py-2 backdrop-blur-xl border-b border-white/[0.08] shrink-0 select-none z-30 transition-colors duration-500 ${
           isAnimatedFocusActive ? 'bg-[#0b0d17]/75' : 'bg-[#0b0d17]/95'
         }`}
       >
         <div className="flex items-center gap-2 min-w-0">
           <img
-            src="/assets/apna_music_logo.jpg"
-            alt="Apna Music Logo"
+            src={`${APP_BASE_URL}icon.svg`}
+            alt="Aura Music logo"
             className="w-7 h-7 rounded-lg object-cover border border-white/15 shadow-sm shrink-0"
           />
           <span className="font-bold text-[13px] tracking-tight text-white whitespace-nowrap truncate">
-            Apna Music
+            Aura Music
           </span>
         </div>
 
@@ -1271,7 +1274,7 @@ export default function App() {
       </header>
 
       {/* Main App Workspace */}
-      <div className="relative z-10 flex flex-1 min-h-0 overflow-hidden">
+      <div className="music-app-workspace relative z-10 flex flex-1 min-h-0 overflow-hidden">
         {/* Left Sidebar */}
         <Sidebar
           activeTab={activeTab}
@@ -1299,11 +1302,11 @@ export default function App() {
         />
 
         {/* Central Content Area */}
-        <main className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-2 sm:px-4 md:px-8 sm:py-5 relative pb-[calc(6rem+env(safe-area-inset-bottom))] md:pb-8">
+        <main className="music-app-main flex-1 overflow-y-auto overflow-x-hidden px-3 py-2 sm:px-4 md:px-8 sm:py-5 relative pb-[calc(6rem+env(safe-area-inset-bottom))] md:pb-8">
           {/* Top Desktop Action Bar */}
-          <div className="hidden md:flex items-center justify-between pb-4 mb-3 border-b border-white/[0.06]">
+          <div className="music-app-desktop-header hidden md:flex items-center justify-between pb-4 mb-3 border-b border-white/[0.06]">
             <div className="flex items-center gap-2 text-xs text-slate-400">
-              <span className="font-semibold text-white">Apna Music</span>
+              <span className="font-semibold text-white">Aura Music</span>
               <span>·</span>
               <span>Hi-Fi Streaming & Discovery</span>
             </div>
@@ -1612,6 +1615,30 @@ export default function App() {
           )}
         </main>
 
+        <FriendActivityBar
+          friendActivities={friendActivities}
+          isOpen={friendActivityOpen}
+          onToggle={() => setFriendActivityOpen((open) => !open)}
+          onListenAlong={(trackId) => {
+            const track = allKnownTracks.find((item) => item.id === trackId);
+            if (track) {
+              handlePlayTrack(track);
+            } else {
+              showToast('That track is not available in your library.');
+            }
+          }}
+          onShareWithFriend={(friendName) => {
+            const friend = friendActivities.find((item) => item.friendName === friendName);
+            const track = friend
+              ? allKnownTracks.find((item) => item.id === friend.trackId)
+              : undefined;
+            if (track) {
+              handleOpenShareTrack(track);
+            } else {
+              showToast(`Could not find ${friendName}'s current track to share.`);
+            }
+          }}
+        />
 
       </div>
 
@@ -1820,17 +1847,17 @@ export default function App() {
       {/* Offline Connectivity Indicator */}
       <OfflineIndicator />
 
-      {/* Apna Music User Authentication Modal (Sign Up / Sign In) */}
+      {/* Aura Music User Authentication Modal (Sign Up / Sign In) */}
       <AuthModal
         isOpen={authModalMode !== null}
         initialMode={authModalMode || 'signup'}
         onClose={() => setAuthModalMode(null)}
         onSuccess={(user) => {
-          showToast(`Welcome to Apna Music, ${user.name}! 🏋️🎧`);
+          showToast(`Welcome to Aura Music, ${user.name}! 🎧`);
         }}
       />
 
-      {/* Apna Music User Profile & Gym Workout Stats Modal */}
+      {/* Aura Music User Profile Modal */}
       {currentUser && (
         <UserProfileModal
           isOpen={userProfileModalOpen}
@@ -1841,7 +1868,7 @@ export default function App() {
           onClose={() => setUserProfileModalOpen(false)}
           onSignOut={() => {
             authService.signOut();
-            showToast('Signed out of Apna Music');
+            showToast('Signed out of Aura Music');
           }}
           onUpdateUser={(updated) => {
             setCurrentUser(updated);

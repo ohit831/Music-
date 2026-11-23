@@ -60,7 +60,11 @@ export function buildListingPlaylists(
   downloadedTrackIds?: Set<string>
 ): Playlist[] {
   const userOwned = playlists.filter(
-    (p) => p.owner === 'You' || p.owner === 'Apna Music AI' || p.id.startsWith('ai-pl-')
+    (p) =>
+      p.owner === 'You' ||
+      p.owner === 'Aura Music AI' ||
+      p.owner === 'Apna Music AI' ||
+      p.id.startsWith('ai-pl-')
   );
 
   const likedVirtual: Playlist = {
@@ -128,7 +132,10 @@ export function resolveActiveHomePlaylist(
   // Prefer user-owned playlists with tracks first
   const userOwnedWithTracks = listingPlaylists.find(
     (p) =>
-      (p.owner === 'You' || p.owner === 'Apna Music AI' || p.id === 'pl-liked') &&
+      (p.owner === 'You' ||
+        p.owner === 'Aura Music AI' ||
+        p.owner === 'Apna Music AI' ||
+        p.id === 'pl-liked') &&
       p.trackIds.length > 0
   );
   if (userOwnedWithTracks) {

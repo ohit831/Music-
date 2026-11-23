@@ -11,6 +11,7 @@ import {
   resolveInstallActionMode,
   type PWAReadinessReport,
 } from '../utils/pwaInstall';
+import { APP_BASE_URL, getAppBaseUrl } from '../utils/appUrl';
 
 export interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -24,25 +25,25 @@ declare global {
 }
 
 export function getPublicOnlineUrl(): string {
-  if (typeof window === 'undefined') return 'http://localhost:3000';
+  if (typeof window === 'undefined') return `http://localhost:3000${APP_BASE_URL}`;
   try {
     const loc = window.location;
     if (loc && loc.origin && !loc.origin.includes('localhost') && !loc.origin.includes('127.0.0.1')) {
-      return loc.origin;
+      return getAppBaseUrl(loc.origin);
     }
     if (document.referrer && document.referrer.startsWith('http')) {
       try {
         const refUrl = new URL(document.referrer);
         if (refUrl.origin && (refUrl.origin.includes('run.app') || refUrl.origin.includes('aistudio.google.com'))) {
-          return refUrl.origin;
+          return getAppBaseUrl(refUrl.origin);
         }
       } catch {
         // Ignore invalid referrer URLs
       }
     }
-    return loc && loc.origin ? loc.origin : 'http://localhost:3000';
+    return loc && loc.origin ? getAppBaseUrl(loc.origin) : `http://localhost:3000${APP_BASE_URL}`;
   } catch {
-    return typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
+    return typeof window !== 'undefined' ? getAppBaseUrl(window.location.origin) : `http://localhost:3000${APP_BASE_URL}`;
   }
 }
 
@@ -238,8 +239,8 @@ export function usePWAInstall() {
     if (navigator.share) {
       try {
         await navigator.share({
-          title: 'Apna Music - Gym Motivation & Music App',
-          text: 'Install Apna Music to stream gym motivation beats, Kannada mass hits & Bollywood chartbusters.',
+          title: 'Aura Music - Personalized Music Discovery',
+          text: 'Install Aura Music for your playlists, personalized mixes, and music discovery.',
           url,
         });
         return true;

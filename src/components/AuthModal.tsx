@@ -4,6 +4,7 @@
  */
 
 import React, { useState } from 'react';
+import { APP_BASE_URL } from '../utils/appUrl';
 import {
   X,
   Mail,
@@ -142,8 +143,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           <div className="flex items-center gap-3.5">
             <div className="relative group">
               <img
-                src="/assets/apna_music_logo.jpg"
-                alt="Apna Music Logo"
+                src={`${APP_BASE_URL}icon.svg`}
+                alt="Aura Music logo"
                 className="w-14 h-14 rounded-2xl object-cover border-2 border-[#1ed760]/40 shadow-lg shadow-[#1ed760]/20"
               />
               <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-[#1ed760] rounded-full flex items-center justify-center text-black shadow-md">
@@ -153,7 +154,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-xl font-extrabold text-white tracking-tight">Apna Music</h2>
+                <h2 className="text-xl font-extrabold text-white tracking-tight">Aura Music</h2>
                 <span className="text-[10px] font-bold uppercase tracking-wider bg-[#1ed760]/20 text-[#1ed760] px-2 py-0.5 rounded-full border border-[#1ed760]/30 font-mono">
                   GYM PRO
                 </span>
@@ -376,12 +377,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               ) : mode === 'signup' ? (
                 <>
                   <Sparkles className="w-4 h-4 stroke-[2.5]" />
-                  <span>Create Free Apna Music Account</span>
+                  <span>Create Free Aura Music Account</span>
                 </>
               ) : (
                 <>
                   <ShieldCheck className="w-4 h-4 stroke-[2.5]" />
-                  <span>Sign In to Apna Music</span>
+                  <span>Sign In to Aura Music</span>
                 </>
               )}
             </button>

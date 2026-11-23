@@ -360,7 +360,7 @@ class AuthService {
   }
 
   /**
-   * Register a new user with Apna Music (password is NEVER included in audit logs)
+   * Register a new user with Aura Music (password is NEVER included in audit logs)
    */
   public signUp(params: {
     name: string;
@@ -484,7 +484,7 @@ class AuthService {
           }
         : {
             id: 'usr_desi_power',
-            name: 'Apna Music Fan',
+            name: 'Aura Music Listener',
             email: 'fan@apnamusic.app',
             avatarUrl: GYM_AVATARS[1],
             gymVibe: 'Desi Workout',

@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { Playlist } from '../utils/musicDiscovery';
 import { UserProfile } from '../services/authService';
+import { APP_BASE_URL } from '../utils/appUrl';
 
 export type ActiveNavTab = 'home' | 'discover' | 'curator' | 'search' | 'jam' | 'liked' | 'library' | 'downloads';
 
@@ -81,7 +82,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <aside
-      className={`hidden md:flex w-64 border-r border-white/[0.08] flex-col h-full select-none shrink-0 overflow-y-auto transition-colors duration-500 ${
+      className={`music-app-sidebar hidden md:flex w-[280px] border-r border-white/[0.08] flex-col h-full select-none shrink-0 overflow-y-auto transition-colors duration-500 ${
         isAnimatedFocusActive ? 'bg-[#0b0d17]/72 backdrop-blur-xl' : 'bg-[#0b0d17]'
       }`}
     >
@@ -92,13 +93,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
           className="flex items-center gap-3 text-left group cursor-pointer"
         >
           <img
-            src="/assets/apna_music_logo.jpg"
-            alt="Apna Music Logo"
+            src={`${APP_BASE_URL}icon.svg`}
+            alt="Aura Music logo"
             className="w-10 h-10 rounded-xl object-cover border border-white/15 shadow-lg group-hover:scale-105 transition-transform"
           />
           <div>
             <span className="font-bold text-base tracking-tight text-white group-hover:text-sky-400 transition-colors block">
-              Apna Music
+              Aura Music
             </span>
             <p className="text-[11px] text-slate-400 font-medium">Hi-Fi Audio & Discovery</p>
           </div>

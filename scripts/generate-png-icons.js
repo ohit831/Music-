@@ -23,6 +23,16 @@ function crc32(buf) {
   return (crc ^ 0xffffffff) >>> 0;
 }
 
+function distanceToSegment(px, py, x1, y1, x2, y2) {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const lengthSquared = dx * dx + dy * dy;
+  const projection = lengthSquared === 0
+    ? 0
+    : Math.max(0, Math.min(1, ((px - x1) * dx + (py - y1) * dy) / lengthSquared));
+  return Math.hypot(px - (x1 + projection * dx), py - (y1 + projection * dy));
+}
+
 function writePNG(width, height, isMaskable) {
   // 8-byte PNG signature
   const sig = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
@@ -46,17 +56,19 @@ function writePNG(width, height, isMaskable) {
   const cx = width / 2;
   const cy = height / 2;
   const cornerRadius = isMaskable ? 0 : width * 0.22;
-
-  // Soundwave bars spec
-  const bars = [
-    { xOff: -0.28, hFactor: 0.35 },
-    { xOff: -0.17, hFactor: 0.65 },
-    { xOff: -0.06, hFactor: 0.95 },
-    { xOff: 0.05, hFactor: 0.8 },
-    { xOff: 0.16, hFactor: 0.5 },
-    { xOff: 0.27, hFactor: 0.25 },
-  ];
-  const barWidth = width * 0.06;
+  const segments = [
+    [0.33, 0.68, 0.5, 0.305],
+    [0.5, 0.305, 0.67, 0.68],
+    [0.42, 0.535, 0.58, 0.535],
+  ].map(([x1, y1, x2, y2]) => [
+    x1 * width,
+    y1 * height,
+    x2 * width,
+    y2 * height,
+  ]);
+  const lineWidth = width * 0.053;
+  const accentStart = [30, 215, 96];
+  const accentEnd = [131, 216, 255];
 
   for (let y = 0; y < height; y++) {
     const rowOffset = y * rawBytesPerRow;
@@ -65,10 +77,9 @@ function writePNG(width, height, isMaskable) {
     for (let x = 0; x < width; x++) {
       const pOffset = rowOffset + 1 + x * 4;
 
-      // Base background: Dark luxury indie theme #0f0f14
-      let r = 15;
-      let g = 15;
-      let b = 20;
+      let r = 9;
+      let g = 13;
+      let b = 19;
       let a = 255;
 
       // Check if inside squircle/circle (for non-maskable icons)
@@ -85,37 +96,40 @@ function writePNG(width, height, isMaskable) {
       }
 
       if (a > 0) {
-        // Subtle radial vignette
-        const distFromCenter = Math.hypot(x - cx, y - cy) / (width * 0.5);
-        if (distFromCenter < 1.0) {
-          r = Math.min(25, Math.round(r + (1 - distFromCenter) * 8));
-          g = Math.min(30, Math.round(g + (1 - distFromCenter) * 12));
-          b = Math.min(35, Math.round(b + (1 - distFromCenter) * 12));
+        const centerDistance = Math.hypot(x - cx, y - cy) / width;
+        const halo = Math.max(0, 1 - centerDistance / 0.53) * 0.16;
+        r = Math.round(r + 18 * halo);
+        g = Math.round(g + 54 * halo);
+        b = Math.round(b + 46 * halo);
+
+        const ringDistance = width * Math.min(
+          Math.abs(centerDistance - 0.36),
+          Math.abs(centerDistance - 0.295)
+        );
+        const lineDistance = Math.min(
+          ...segments.map((segment) => distanceToSegment(x, y, ...segment))
+        );
+        const markDistance = Math.min(ringDistance, lineDistance);
+        const gradientT = Math.max(0, Math.min(1, x / width));
+        const accent = accentStart.map((channel, index) =>
+          Math.round(channel + (accentEnd[index] - channel) * gradientT)
+        );
+
+        if (markDistance < lineWidth * 1.8) {
+          const glowStrength = Math.max(0, 1 - markDistance / (lineWidth * 1.8)) * 0.45;
+          r = Math.round(r + (accent[0] - r) * glowStrength);
+          g = Math.round(g + (accent[1] - g) * glowStrength);
+          b = Math.round(b + (accent[2] - b) * glowStrength);
+        }
+        if (lineDistance <= lineWidth / 2 || ringDistance <= width * 0.004) {
+          [r, g, b] = accent;
+          a = 255;
         }
 
-        // Draw soundwave bars with #1ed760 Spotify Emerald gradient
-        for (const bar of bars) {
-          const bx = cx + bar.xOff * width;
-          const bh = bar.hFactor * (height * 0.55);
-          const by1 = cy - bh / 2;
-          const by2 = cy + bh / 2;
-
-          if (x >= bx - barWidth / 2 && x <= bx + barWidth / 2 && y >= by1 && y <= by2) {
-            // Gradient: emerald to bright neon green
-            const gradT = (y - by1) / bh;
-            r = Math.round(5 + gradT * 25);
-            g = Math.round(180 + (1 - gradT) * 35);
-            b = Math.round(100 - gradT * 40);
-            a = 255;
-          }
-        }
-
-        // Center radio pulse indicator
-        const dotDist = Math.hypot(x - (cx - barWidth * 0.5), y - cy);
-        if (dotDist <= width * 0.02) {
-          r = 255;
+        if (Math.hypot(x - cx, y - height * 0.535) <= width * 0.018) {
+          r = 237;
           g = 255;
-          b = 255;
+          b = 248;
           a = 255;
         }
       }
@@ -155,4 +169,5 @@ fs.writeFileSync(path.join(publicDir, 'pwa-192x192.png'), writePNG(192, 192, fal
 fs.writeFileSync(path.join(publicDir, 'pwa-512x512.png'), writePNG(512, 512, false));
 fs.writeFileSync(path.join(publicDir, 'pwa-maskable-512x512.png'), writePNG(512, 512, true));
 fs.writeFileSync(path.join(publicDir, 'apple-touch-icon.png'), writePNG(180, 180, false));
+fs.writeFileSync(path.join(publicDir, 'favicon.png'), writePNG(192, 192, false));
 console.log('Successfully generated all PWA & Android app icons in /public!');

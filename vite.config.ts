@@ -714,7 +714,10 @@ function devPwaSafeRegisterPlugin(): Plugin {
 }
 
 export default defineConfig(() => {
+  const base = process.env.GITHUB_PAGES === 'true' ? '/Music-/' : '/';
+
   return {
+    base,
     plugins: [
       react(),
       tailwindcss(),
@@ -723,33 +726,33 @@ export default defineConfig(() => {
         injectRegister: false,
         useCredentials: true,
         manifest: {
-          id: '/',
-          name: 'Apna Music - Gym Motivation & Music App',
-          short_name: 'Apna Music',
-          description: 'Stream gym workout motivation beats, Kannada mass tracks, Bollywood chartbusters, and underground discoveries.',
+          id: base,
+          name: 'Aura Music - Personalized Music Discovery',
+          short_name: 'Aura Music',
+          description: 'Your playlists, personalized mixes, and music discovery in one place.',
           theme_color: '#0b0d17',
           background_color: '#0b0d17',
           display: 'standalone',
           display_override: ['standalone', 'minimal-ui'],
           orientation: 'any',
-          start_url: '/',
-          scope: '/',
+          start_url: base,
+          scope: base,
           categories: ['music', 'entertainment', 'audio', 'fitness'],
           icons: [
             {
-              src: '/pwa-192x192.png',
+              src: `${base}pwa-192x192.png`,
               sizes: '192x192',
               type: 'image/png',
               purpose: 'any',
             },
             {
-              src: '/pwa-512x512.png',
+              src: `${base}pwa-512x512.png`,
               sizes: '512x512',
               type: 'image/png',
               purpose: 'any',
             },
             {
-              src: '/pwa-maskable-512x512.png',
+              src: `${base}pwa-maskable-512x512.png`,
               sizes: '512x512',
               type: 'image/png',
               purpose: 'maskable',
@@ -760,23 +763,23 @@ export default defineConfig(() => {
               name: 'Discovery Radar',
               short_name: 'Discover',
               description: 'Explore trending underground indie tracks',
-              url: '/?tab=discover',
-              icons: [{ src: '/pwa-192x192.png', sizes: '192x192', type: 'image/png' }],
+              url: `${base}?tab=discover`,
+              icons: [{ src: `${base}pwa-192x192.png`, sizes: '192x192', type: 'image/png' }],
             },
             {
               name: 'Audio Visualizer',
               short_name: 'Visualizer',
               description: 'Watch frequency spectrum react live to audio',
-              url: '/?action=visualizer',
-              icons: [{ src: '/pwa-192x192.png', sizes: '192x192', type: 'image/png' }],
+              url: `${base}?action=visualizer`,
+              icons: [{ src: `${base}pwa-192x192.png`, sizes: '192x192', type: 'image/png' }],
             },
           ],
         },
         workbox: {
           maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
-          navigateFallback: '/index.html',
-          navigateFallbackDenylist: [/^\/api\//],
+          navigateFallback: `${base}index.html`,
+          navigateFallbackDenylist: [new RegExp(`^${base}api/`)],
           cleanupOutdatedCaches: true,
           clientsClaim: true,
           skipWaiting: true,

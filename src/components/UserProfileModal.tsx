@@ -21,6 +21,7 @@ import {
   Sparkles,
   Activity,
 } from 'lucide-react';
+import { APP_BASE_URL } from '../utils/appUrl';
 import {
   UserProfile,
   GYM_VIBES,
@@ -164,7 +165,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
               <p className="text-xs text-neutral-400 mt-0.5 truncate">{user.email}</p>
               <div className="inline-flex items-center gap-1.5 mt-2 px-2.5 py-0.5 rounded-full bg-white/5 border border-white/10 text-[11px] text-emerald-400 font-medium">
                 <ShieldCheck className="w-3.5 h-3.5" />
-                <span>Apna Music Member since {user.joinedDate}</span>
+                <span>Aura Music Member since {user.joinedDate}</span>
               </div>
             </div>
           </div>
@@ -260,7 +261,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                 <Users className="w-8 h-8 mx-auto opacity-40 text-[#1ed760]" />
                 <p className="text-sm font-semibold text-white">No visitor logins recorded yet</p>
                 <p className="text-xs text-neutral-400">
-                  When visitors sign in to Apna Music, their name, email, device & timestamp appear here.
+                  When visitors sign in to Aura Music, their name, email, device & timestamp appear here.
                 </p>
               </div>
             ) : (
@@ -573,11 +574,11 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
         <div className="p-4 bg-black/40 border-t border-white/5 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <img
-              src="/assets/apna_music_logo.jpg"
-              alt="Apna Music Logo"
+              src={`${APP_BASE_URL}icon.svg`}
+              alt="Aura Music logo"
               className="w-7 h-7 rounded-lg object-cover"
             />
-            <span className="text-xs font-semibold text-neutral-400">Apna Music</span>
+            <span className="text-xs font-semibold text-neutral-400">Aura Music</span>
           </div>
 
           <button

@@ -280,3 +280,230 @@ input[type="range"]:hover::-webkit-slider-thumb {
     animation: none !important;
   }
 }
+
+/* Music-player shell */
+@layer base {
+  body {
+    background: #000;
+  }
+}
+
+[data-app-shell][data-theme='spotify-dark'],
+[data-app-shell][data-theme='amoled-black'] {
+  background-color: #000;
+}
+
+[data-app-shell][data-theme='gym-neon'] {
+  background-color: #080d0a;
+}
+
+.music-app-workspace {
+  gap: 8px;
+  padding: 8px 8px 0;
+}
+
+.music-app-sidebar {
+  width: 280px;
+  border: 0;
+  border-radius: 8px;
+  background: #121212 !important;
+}
+
+[data-animated-focus='on'] .music-app-sidebar {
+  background: rgb(18 18 18 / 82%) !important;
+  backdrop-filter: blur(20px);
+}
+
+.music-app-sidebar [class*='text-sky-'],
+.music-app-sidebar [class*='text-cyan-'],
+.music-app-main [class*='text-sky-'],
+.music-app-main [class*='text-cyan-'],
+.music-app-player [class*='text-sky-'],
+.music-app-mobile-nav [class*='text-sky-'] {
+  color: #1ed760;
+}
+
+.music-app-main {
+  min-width: 0;
+  border-radius: 8px 8px 0 0;
+  background:
+    linear-gradient(180deg, rgb(29 76 48 / 38%) 0, rgb(18 18 18 / 94%) 340px),
+    #121212;
+}
+
+[data-theme='amoled-black'] .music-app-main {
+  background:
+    linear-gradient(180deg, rgb(29 76 48 / 28%) 0, rgb(0 0 0 / 96%) 340px),
+    #000;
+}
+
+[data-theme='gym-neon'] .music-app-main {
+  background:
+    linear-gradient(180deg, rgb(29 76 48 / 38%) 0, rgb(8 13 10 / 96%) 340px),
+    #080d0a;
+}
+
+.music-app-desktop-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  padding-top: 4px;
+  background: rgb(18 18 18 / 88%);
+  backdrop-filter: blur(18px);
+  border-color: rgb(255 255 255 / 9%);
+}
+
+.music-app-main > div:not(.music-app-desktop-header) {
+  width: 100%;
+  max-width: 1440px;
+  margin-inline: auto;
+}
+
+.music-app-main > div:not(.music-app-desktop-header) [class*='rounded-3xl'] {
+  border-radius: 12px;
+}
+
+.music-app-friends {
+  border: 0;
+  border-radius: 8px;
+  background: #121212 !important;
+}
+
+.music-app-friends [class*='rounded-2xl'] {
+  border-radius: 10px;
+}
+
+.music-app-friends [class*='bg-white/5'] {
+  background-color: #181818;
+}
+
+.music-app-main [data-testid='home-view'] {
+  max-width: 1100px;
+}
+
+.music-home-view [data-testid='home-now-playing'] {
+  position: relative;
+  overflow: hidden;
+  border-color: rgb(255 255 255 / 10%);
+  background:
+    linear-gradient(115deg, rgb(31 65 43 / 84%), rgb(24 39 31 / 74%) 45%, rgb(25 25 25 / 92%)),
+    #181818;
+  box-shadow: 0 14px 36px rgb(0 0 0 / 18%);
+}
+
+.music-home-view [data-testid='home-now-playing'] img {
+  border-radius: 8px;
+}
+
+.music-home-view [data-testid='home-search-input'] {
+  height: 48px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: #242424;
+}
+
+.music-home-view [data-testid='home-search-input']:hover,
+.music-home-view [data-testid='home-search-input']:focus {
+  background: #2a2a2a;
+  border-color: rgb(255 255 255 / 42%);
+}
+
+.music-home-view [data-testid='home-search-results'],
+.music-home-view [data-testid='home-liked-empty'] {
+  border-radius: 10px;
+  background: #181818;
+}
+
+.music-home-view [data-testid='home-liked-songs'] h1 {
+  font-size: clamp(1.25rem, 2vw, 1.65rem);
+  font-weight: 750;
+}
+
+.music-home-view [data-testid='liked-song-row'] {
+  border-radius: 8px;
+}
+
+.music-home-view [data-testid='liked-song-row']:hover {
+  background-color: rgb(255 255 255 / 8%);
+}
+
+.music-track-shelf {
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgb(255 255 255 / 18%) transparent;
+}
+
+.music-track-card-play {
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease,
+    background-color 180ms ease;
+}
+
+.music-track-card-play:hover {
+  background-color: #3be477;
+}
+
+.music-app-player {
+  height: 88px;
+  border-top: 1px solid rgb(255 255 255 / 8%);
+  background: #000;
+  box-shadow: none;
+}
+
+.music-app-mobile-header {
+  background: #000 !important;
+  border-color: rgb(255 255 255 / 8%);
+}
+
+.music-app-mobile-nav {
+  background: #000 !important;
+  border-color: rgb(255 255 255 / 10%);
+  box-shadow: 0 -8px 24px rgb(0 0 0 / 38%);
+}
+
+input[type='range'] {
+  accent-color: #1ed760;
+}
+
+input[type='range']::-webkit-slider-thumb {
+  background: #1ed760;
+}
+
+input[type='range']:hover::-webkit-slider-thumb {
+  background: #1ed760;
+}
+
+::selection {
+  color: #000;
+  background: #1ed760;
+}
+
+@media (max-width: 767px) {
+  .music-app-workspace {
+    gap: 0;
+    padding: 0;
+  }
+
+  .music-app-main {
+    border-radius: 0;
+    background:
+      linear-gradient(180deg, rgb(29 76 48 / 30%) 0, rgb(18 18 18 / 97%) 300px),
+      #121212;
+  }
+
+  .music-app-player {
+    height: 76px;
+    background: #121212;
+  }
+
+  .music-home-view [data-testid='home-now-playing'] {
+    border-radius: 12px;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1279px) {
+  .music-app-sidebar {
+    width: 224px;
+  }
+}

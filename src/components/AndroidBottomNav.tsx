@@ -29,7 +29,7 @@ export const AndroidBottomNav: React.FC<AndroidBottomNavProps> = ({
 }) => {
   return (
     <nav
-      className="md:hidden shrink-0 z-40 bg-[#101220]/95 backdrop-blur-xl border-t border-white/[0.08] px-1 py-1.5 flex items-center justify-around select-none shadow-[0_-10px_30px_rgba(0,0,0,0.75)]"
+      className="music-app-mobile-nav md:hidden shrink-0 z-40 bg-[#101220]/95 backdrop-blur-xl border-t border-white/[0.08] px-1 py-1.5 flex items-center justify-around select-none shadow-[0_-10px_30px_rgba(0,0,0,0.75)]"
       aria-label="Mobile Fast Access Navigation"
     >
       {/* 1. Home */}

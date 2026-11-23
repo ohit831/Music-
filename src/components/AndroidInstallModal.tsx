@@ -22,6 +22,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { usePWAInstall } from '../hooks/usePWAInstall';
+import { APP_BASE_URL } from '../utils/appUrl';
 
 interface AndroidInstallModalProps {
   isOpen: boolean;
@@ -74,7 +75,7 @@ export const AndroidInstallModal: React.FC<AndroidInstallModalProps> = ({ isOpen
     setInstalling(false);
 
     if (res.success) {
-      setStatusMessage('Apna Music installed successfully!');
+      setStatusMessage('Aura Music installed successfully!');
       setTimeout(() => onClose(), 1200);
     } else if (res.outcome === 'dismissed') {
       setStatusMessage('Install dismissed. You can install anytime from the header or browser menu.');
@@ -95,7 +96,7 @@ export const AndroidInstallModal: React.FC<AndroidInstallModalProps> = ({ isOpen
   const handleShare = async () => {
     const ok = await shareOnlineApp();
     if (ok) {
-      setStatusMessage('Shared Apna Music link.');
+      setStatusMessage('Shared Aura Music link.');
     }
   };
 
@@ -125,13 +126,13 @@ export const AndroidInstallModal: React.FC<AndroidInstallModalProps> = ({ isOpen
         {/* Header */}
         <div className="flex items-center gap-3.5 mb-5 pr-8">
           <img
-            src="/pwa-192x192.png"
-            alt="Apna Music App Icon"
+            src={`${APP_BASE_URL}pwa-192x192.png`}
+            alt="Aura Music app icon"
             className="w-12 h-12 rounded-xl shadow-md border border-white/15 object-cover shrink-0"
           />
           <div>
             <h3 id="install-modal-title" className="text-base sm:text-lg font-bold text-white tracking-tight">
-              Install Apna Music
+              Install Aura Music
             </h3>
             <p className="text-xs text-slate-400 mt-0.5">
               Standalone app with home-screen icon &amp; offline shell
@@ -154,7 +155,7 @@ export const AndroidInstallModal: React.FC<AndroidInstallModalProps> = ({ isOpen
         {isInstalled && (
           <div className="mb-4 px-3.5 py-3 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-xs text-emerald-200 flex items-center gap-2.5">
             <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-            <span>Apna Music is already running as an installed standalone app.</span>
+            <span>Aura Music is already running as an installed standalone app.</span>
           </div>
         )}
 
@@ -219,7 +220,7 @@ export const AndroidInstallModal: React.FC<AndroidInstallModalProps> = ({ isOpen
                   <span className="text-[11px] font-medium text-emerald-300">Browser Verified</span>
                 </div>
                 <p className="text-xs text-slate-300 leading-relaxed">
-                  Your browser is ready to install Apna Music directly to your home screen with its app icon and standalone window.
+                  Your browser is ready to install Aura Music directly to your home screen with its app icon and standalone window.
                 </p>
                 <button
                   type="button"
@@ -233,7 +234,7 @@ export const AndroidInstallModal: React.FC<AndroidInstallModalProps> = ({ isOpen
                   ) : (
                     <Download className="w-4 h-4 stroke-[2.5]" />
                   )}
-                  <span>{installing ? 'Installing...' : 'Install Apna Music Now'}</span>
+                  <span>{installing ? 'Installing...' : 'Install Aura Music Now'}</span>
                 </button>
               </div>
             ) : (
@@ -264,7 +265,7 @@ export const AndroidInstallModal: React.FC<AndroidInstallModalProps> = ({ isOpen
                       3
                     </span>
                     <span>
-                      If you are opening a private authenticated preview link and Chrome only allows <strong>Create shortcut</strong>, tap <strong>Create shortcut</strong> to place the Apna Music icon directly on your home screen.
+                      If you are opening a private authenticated preview link and Chrome only allows <strong>Create shortcut</strong>, tap <strong>Create shortcut</strong> to place the Aura Music icon directly on your home screen.
                     </span>
                   </li>
                 </ol>
@@ -352,7 +353,7 @@ export const AndroidInstallModal: React.FC<AndroidInstallModalProps> = ({ isOpen
                   <span className="w-5 h-5 rounded-full bg-white/10 text-white font-bold flex items-center justify-center text-[10px] shrink-0 mt-0.5">
                     1
                   </span>
-                  <span>Open Apna Music in <strong>Safari</strong> on your iPhone or iPad.</span>
+                  <span>Open Aura Music in <strong>Safari</strong> on your iPhone or iPad.</span>
                 </li>
                 <li className="flex items-start gap-2.5">
                   <span className="w-5 h-5 rounded-full bg-white/10 text-white font-bold flex items-center justify-center text-[10px] shrink-0 mt-0.5">
@@ -378,7 +379,7 @@ export const AndroidInstallModal: React.FC<AndroidInstallModalProps> = ({ isOpen
               <div className="p-2 rounded-xl bg-[#0b0d17] border border-white/10 shrink-0">
                 <img
                   src={qrImageUrl}
-                  alt="Scan QR code to open Apna Music on your phone"
+                  alt="Scan QR code to open Aura Music on your phone"
                   className="w-32 h-32 rounded-lg object-contain"
                   loading="eager"
                 />
@@ -389,7 +390,7 @@ export const AndroidInstallModal: React.FC<AndroidInstallModalProps> = ({ isOpen
                   <span>Open on Your Phone</span>
                 </div>
                 <p className="text-xs text-slate-300 leading-relaxed">
-                  Scan this QR code with your phone camera or copy the direct link to open Apna Music in mobile Chrome or Safari.
+                  Scan this QR code with your phone camera or copy the direct link to open Aura Music in mobile Chrome or Safari.
                 </p>
                 <div className="flex flex-wrap gap-2 justify-center sm:justify-start">
                   <button

@@ -24,7 +24,7 @@ export const FriendActivityBar: React.FC<FriendActivityBarProps> = ({
 }) => {
   if (!isOpen) {
     return (
-      <aside className="w-12 bg-[#0d0d11] border-l border-white/10 flex flex-col items-center py-4 shrink-0 select-none">
+      <aside className="music-app-friends hidden xl:flex w-12 bg-[#0d0d11] border-l border-white/10 flex-col items-center py-4 shrink-0 select-none">
         <button
           onClick={onToggle}
           className="p-2 text-neutral-400 hover:text-white rounded-xl hover:bg-white/10 transition-colors"
@@ -38,7 +38,7 @@ export const FriendActivityBar: React.FC<FriendActivityBarProps> = ({
   }
 
   return (
-    <aside className="w-72 bg-[#0c0c10] border-l border-white/10 flex flex-col h-full shrink-0 select-none">
+    <aside className="music-app-friends hidden xl:flex w-[280px] bg-[#0c0c10] border-l border-white/10 flex-col h-full shrink-0 select-none">
       {/* Header */}
       <div className="p-4 border-b border-white/10 flex items-center justify-between">
         <div className="flex items-center gap-2">

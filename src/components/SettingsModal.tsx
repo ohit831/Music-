@@ -1092,7 +1092,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-emerald-950/60 to-black border border-emerald-500/30 space-y-4">
                 <div className="flex items-center gap-3.5">
                   <img
-                    src={currentUser?.avatarUrl || '/assets/apna_music_logo.jpg'}
+                    src={currentUser?.avatarUrl || '/icon.svg'}
                     alt={currentUser?.name || 'User Profile'}
                     className="w-14 h-14 rounded-2xl object-cover border-2 border-[#1ed760] shadow-md shrink-0"
                   />
@@ -1140,7 +1140,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         {/* Footer */}
         <div className="px-5 sm:px-6 py-3.5 border-t border-white/10 bg-[#16161c] flex items-center justify-between">
           <span className="text-xs font-mono text-neutral-400">
-            Apna Music v3.4 • Gym & Spotify Edition
+            Aura Music v3.4 • Music Discovery
           </span>
           <button
             onClick={handleClose}

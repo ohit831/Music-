@@ -349,7 +349,7 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
     <footer
       data-track-id={currentTrack.id}
       data-transition-direction={transitionDirection}
-      className={`h-20 sm:h-24 bg-[#10111a]/95 backdrop-blur-xl border-t px-3 sm:px-4 lg:px-6 flex items-center justify-between select-none z-30 shadow-2xl relative shrink-0 transition-all duration-300 ${
+      className={`music-app-player h-20 sm:h-24 bg-[#10111a]/95 backdrop-blur-xl border-t px-3 sm:px-4 lg:px-6 flex items-center justify-between select-none z-30 shadow-2xl relative shrink-0 transition-all duration-300 ${
         isCrossfading
           ? 'border-t-sky-400/60 shadow-[0_-10px_30px_rgba(56,189,248,0.18)]'
           : 'border-t-white/[0.08]'
