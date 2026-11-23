@@ -113,7 +113,7 @@ interface PlayerBarProps {
   onToggleMute: () => void;
   onToggleShuffle: () => void;
   onToggleRepeat: () => void;
-  onToggleLike: (trackId: string) => void;
+  onToggleLike: (trackId: string, track?: IndieTrack) => void;
   onShare: (track: IndieTrack) => void;
   onToggleLyrics: () => void;
   onToggleQueue: () => void;
@@ -522,11 +522,28 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
           <span className="hidden sm:inline text-[10px] font-mono font-bold text-neutral-200">D3</span>
         </button>
 
+        {/* Mobile synced Like button on mini-player */}
+        <button
+          type="button"
+          onClick={() => onToggleLike(currentTrack.id, currentTrack)}
+          data-testid="playerbar-like-mobile"
+          className="sm:hidden flex items-center justify-center w-9 h-9 rounded-full text-neutral-400 hover:text-rose-500 active:scale-95 transition-colors shrink-0 cursor-pointer"
+          aria-label={isLiked ? 'Unlike track' : 'Like track'}
+          title={isLiked ? 'Unlike track' : 'Save to Liked Songs'}
+        >
+          <Heart
+            className={`w-4 h-4 ${
+              isLiked ? 'text-rose-500 fill-rose-500' : 'text-neutral-400'
+            }`}
+          />
+        </button>
+
         {/* Like, Download & Share */}
         <div className="hidden sm:flex items-center gap-1 ml-1">
           <button
-            onClick={() => onToggleLike(currentTrack.id)}
-            className="p-1.5 text-neutral-400 hover:text-rose-500 rounded-full transition-colors"
+            onClick={() => onToggleLike(currentTrack.id, currentTrack)}
+            data-testid="playerbar-like-desktop"
+            className="p-1.5 text-neutral-400 hover:text-rose-500 rounded-full transition-colors cursor-pointer"
             aria-label={isLiked ? 'Unlike track' : 'Like track'}
             title={isLiked ? 'Unlike track' : 'Save to Liked Songs'}
           >

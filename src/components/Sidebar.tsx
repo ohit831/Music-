@@ -45,6 +45,7 @@ interface SidebarProps {
   user?: UserProfile | null;
   onOpenAuth?: (mode: 'signup' | 'signin') => void;
   onOpenProfile?: () => void;
+  isAnimatedFocusActive?: boolean;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -63,6 +64,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   user,
   onOpenAuth,
   onOpenProfile,
+  isAnimatedFocusActive = false,
 }) => {
   const [libraryFilter, setLibraryFilter] = useState<'all' | 'playlists' | 'liked' | 'downloads'>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -78,7 +80,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
   });
 
   return (
-    <aside className="hidden md:flex w-64 bg-[#0b0d17] border-r border-white/[0.08] flex-col h-full select-none shrink-0 overflow-y-auto">
+    <aside
+      className={`hidden md:flex w-64 border-r border-white/[0.08] flex-col h-full select-none shrink-0 overflow-y-auto transition-colors duration-500 ${
+        isAnimatedFocusActive ? 'bg-[#0b0d17]/72 backdrop-blur-xl' : 'bg-[#0b0d17]'
+      }`}
+    >
       {/* Brand Logo */}
       <div className="p-4 pb-3.5 flex items-center justify-between border-b border-white/[0.06]">
         <button
@@ -163,32 +169,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </button>
 
         <button
-          onClick={() => onSelectTab('discover')}
-          className={`w-full flex items-center gap-3 px-3.5 py-2 rounded-xl font-semibold text-sm transition-colors cursor-pointer ${
-            activeTab === 'discover' && !selectedPlaylistId
-              ? 'bg-white/[0.08] text-sky-400'
-              : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
-          }`}
-        >
-          <Compass className="w-4 h-4" />
-          Discovery Radar
-        </button>
-
-        <button
-          onClick={() => onSelectTab('curator')}
-          className={`w-full flex items-center justify-between px-3.5 py-2 rounded-xl font-semibold text-sm transition-all group cursor-pointer ${
-            activeTab === 'curator' && !selectedPlaylistId
-              ? 'bg-white/[0.08] text-sky-400'
-              : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
-          }`}
-        >
-          <div className="flex items-center gap-3">
-            <Sparkles className="w-4 h-4" />
-            <span>AI Curator</span>
-          </div>
-        </button>
-
-        <button
           onClick={() => onSelectTab('search')}
           className={`w-full flex items-center gap-3 px-3.5 py-2 rounded-xl font-semibold text-sm transition-colors cursor-pointer ${
             activeTab === 'search' && !selectedPlaylistId
@@ -198,18 +178,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
         >
           <Search className="w-4 h-4" />
           Search & Vibes
-        </button>
-
-        <button
-          onClick={() => onSelectTab('jam')}
-          className={`w-full flex items-center gap-3 px-3.5 py-2 rounded-xl font-semibold text-sm transition-colors cursor-pointer ${
-            activeTab === 'jam' && !selectedPlaylistId
-              ? 'bg-white/[0.08] text-sky-400'
-              : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
-          }`}
-        >
-          <Users className="w-4 h-4" />
-          <span className="flex-1 text-left">Live Jam Room</span>
         </button>
       </nav>
 

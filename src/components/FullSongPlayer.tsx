@@ -67,9 +67,16 @@ export const FullSongPlayer: React.FC<FullSongPlayerProps> = ({
   const keepAliveAudioRef = useRef<HTMLAudioElement | null>(null);
 
   const [isPlayerReady, setIsPlayerReady] = useState(false);
+  const [hasActivatedPlayer, setHasActivatedPlayer] = useState(() => Boolean(isPlaying || isVideoVisible));
   const [isUsingAudioFallback, setIsUsingAudioFallback] = useState(false);
   const isUsingAudioFallbackRef = useRef(false);
   isUsingAudioFallbackRef.current = isUsingAudioFallback;
+
+  useEffect(() => {
+    if ((isPlaying || isVideoVisible) && !hasActivatedPlayer) {
+      setHasActivatedPlayer(true);
+    }
+  }, [isPlaying, isVideoVisible, hasActivatedPlayer]);
 
   const currentVideoIdRef = useRef<string | null>(null);
   const currentTrackRef = useRef<IndieTrack | null>(currentTrack);
@@ -432,25 +439,44 @@ export const FullSongPlayer: React.FC<FullSongPlayerProps> = ({
     };
   }, []);
 
-  // Load YouTube IFrame API script if not present
+  // Load YouTube IFrame API script lazily only after playback starts or video is explicitly toggled open
   useEffect(() => {
+    if (!hasActivatedPlayer) return;
+
+    let cancelled = false;
+    let retryTimer: number | null = null;
+
     if (!window.YT) {
-      const tag = document.createElement('script');
-      tag.src = 'https://www.youtube.com/iframe_api';
-      const firstScriptTag = document.getElementsByTagName('script')[0];
-      firstScriptTag?.parentNode?.insertBefore(tag, firstScriptTag);
+      const existingScript = document.querySelector('script[src="https://www.youtube.com/iframe_api"]');
+      if (!existingScript) {
+        const tag = document.createElement('script');
+        tag.src = 'https://www.youtube.com/iframe_api';
+        const firstScriptTag = document.getElementsByTagName('script')[0];
+        firstScriptTag?.parentNode?.insertBefore(tag, firstScriptTag);
+      }
     }
 
     const checkYT = () => {
-      if (window.YT && window.YT.Player) {
+      if (cancelled) return;
+      if (window.YT && window.YT.Player && containerRef.current) {
         initPlayer();
       } else {
-        setTimeout(checkYT, 100);
+        retryTimer = window.setTimeout(checkYT, 120);
       }
     };
 
     checkYT();
 
+    return () => {
+      cancelled = true;
+      if (retryTimer !== null) {
+        window.clearTimeout(retryTimer);
+      }
+    };
+  }, [hasActivatedPlayer]);
+
+  // Clean up timers and player on unmount
+  useEffect(() => {
     return () => {
       if (pollIntervalRef.current) {
         window.clearInterval(pollIntervalRef.current);
@@ -928,68 +954,70 @@ export const FullSongPlayer: React.FC<FullSongPlayerProps> = ({
         preload="auto"
       />
 
-      <div
-        ref={containerRef}
-        inert={!isVideoVisible}
-        aria-hidden={!isVideoVisible}
-        className={`transition-all duration-300 ${
-          isVideoVisible
-            ? 'fixed inset-x-3 bottom-24 sm:inset-x-auto sm:right-6 sm:w-[410px] rounded-2xl overflow-hidden shadow-2xl border-2 border-[#1ed760]/50 bg-black/98 backdrop-blur-2xl z-50 animate-scale-in'
-            : 'fixed -top-[9999px] -left-[9999px] w-[320px] h-[180px] pointer-events-none z-[-100]'
-        }`}
-      >
-        {/* Video Header Controls with Prominent Hide Button */}
-        <div className="flex items-center justify-between px-3 py-2.5 bg-[#121216] border-b border-white/10">
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#1ed760] animate-pulse shrink-0" />
-            <p className="text-xs font-bold text-white truncate">
-              {currentTrack.title}
-            </p>
-            <span className="text-[10px] text-neutral-400 font-mono hidden sm:inline truncate">
-              • {isUsingAudioFallback ? 'Background Audio' : 'Video Mode'}
-            </span>
+      {hasActivatedPlayer && (
+        <div
+          ref={containerRef}
+          inert={!isVideoVisible}
+          aria-hidden={!isVideoVisible}
+          className={`transition-all duration-300 ${
+            isVideoVisible
+              ? 'fixed inset-x-3 bottom-24 sm:inset-x-auto sm:right-6 sm:w-[410px] rounded-2xl overflow-hidden shadow-2xl border-2 border-[#1ed760]/50 bg-black/98 backdrop-blur-2xl z-50 animate-scale-in'
+              : 'fixed -top-[9999px] -left-[9999px] w-[320px] h-[180px] pointer-events-none z-[-100]'
+          }`}
+        >
+          {/* Video Header Controls with Prominent Hide Button */}
+          <div className="flex items-center justify-between px-3 py-2.5 bg-[#121216] border-b border-white/10">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#1ed760] animate-pulse shrink-0" />
+              <p className="text-xs font-bold text-white truncate">
+                {currentTrack.title}
+              </p>
+              <span className="text-[10px] text-neutral-400 font-mono hidden sm:inline truncate">
+                • {isUsingAudioFallback ? 'Background Audio' : 'Video Mode'}
+              </span>
+            </div>
+            <button
+              onClick={onToggleVideo}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-rose-200 hover:text-white border border-red-500/40 text-xs font-bold transition-all cursor-pointer shrink-0 shadow-sm"
+              title="Hide Video (Audio keeps playing)"
+              aria-label="Hide Video Window"
+            >
+              <X className="w-3.5 h-3.5 stroke-[2.5]" />
+              <span>Hide Video</span>
+            </button>
           </div>
-          <button
-            onClick={onToggleVideo}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-rose-200 hover:text-white border border-red-500/40 text-xs font-bold transition-all cursor-pointer shrink-0 shadow-sm"
-            title="Hide Video (Audio keeps playing)"
-            aria-label="Hide Video Window"
-          >
-            <X className="w-3.5 h-3.5 stroke-[2.5]" />
-            <span>Hide Video</span>
-          </button>
-        </div>
 
-        {/* YouTube Player Iframe Target - ALWAYS retains real viewport dimensions */}
-        <div className="relative w-full aspect-video bg-black">
-          <div id="youtube-full-song-iframe" className="w-full h-full" />
-        </div>
+          {/* YouTube Player Iframe Target - ALWAYS retains real viewport dimensions */}
+          <div className="relative w-full aspect-video bg-black">
+            <div id="youtube-full-song-iframe" className="w-full h-full" />
+          </div>
 
-        {/* Video Footer info */}
-        <div className="px-3 py-2 bg-[#121216] flex items-center justify-between text-xs text-neutral-400">
-          <span className="text-[#1ed760] font-mono flex items-center gap-1.5 text-[11px]">
-            {isUsingAudioFallback ? (
-              <Volume2 className="w-3.5 h-3.5 text-[#1ed760]" />
-            ) : lockScreenPlayback ? (
-              <Lock className="w-3.5 h-3.5 text-[#1ed760]" />
-            ) : (
-              <Sparkles className="w-3.5 h-3.5" />
-            )}
-            {isUsingAudioFallback
-              ? 'Lock-Screen Audio Stream'
-              : lockScreenPlayback
-              ? 'Lock-Screen Ready'
-              : '100% Master Audio'}
-          </span>
-          <button
-            onClick={onToggleVideo}
-            className="flex items-center gap-1 text-[11px] font-bold text-neutral-300 hover:text-white bg-white/10 hover:bg-white/20 px-2.5 py-0.5 rounded-full border border-white/10 transition-colors cursor-pointer"
-            title="Switch to Audio Only Mode"
-          >
-            <span>Audio Only Mode ✕</span>
-          </button>
+          {/* Video Footer info */}
+          <div className="px-3 py-2 bg-[#121216] flex items-center justify-between text-xs text-neutral-400">
+            <span className="text-[#1ed760] font-mono flex items-center gap-1.5 text-[11px]">
+              {isUsingAudioFallback ? (
+                <Volume2 className="w-3.5 h-3.5 text-[#1ed760]" />
+              ) : lockScreenPlayback ? (
+                <Lock className="w-3.5 h-3.5 text-[#1ed760]" />
+              ) : (
+                <Sparkles className="w-3.5 h-3.5" />
+              )}
+              {isUsingAudioFallback
+                ? 'Lock-Screen Audio Stream'
+                : lockScreenPlayback
+                ? 'Lock-Screen Ready'
+                : '100% Master Audio'}
+            </span>
+            <button
+              onClick={onToggleVideo}
+              className="flex items-center gap-1 text-[11px] font-bold text-neutral-300 hover:text-white bg-white/10 hover:bg-white/20 px-2.5 py-0.5 rounded-full border border-white/10 transition-colors cursor-pointer"
+              title="Switch to Audio Only Mode"
+            >
+              <span>Audio Only Mode ✕</span>
+            </button>
+          </div>
         </div>
-      </div>
+      )}
     </>
   );
 };

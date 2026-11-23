@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { X, ListMusic, Play, Trash2, Sparkles, Plus } from 'lucide-react';
+import { X, ListMusic, Play, Trash2, Sparkles, Plus, Heart } from 'lucide-react';
 import { IndieTrack, formatDuration } from '../utils/musicDiscovery';
 import type { RecommendedTrackItem } from '../utils/smartRecommendations';
 import type { SonicProfile, VibeMatchItem } from '../utils/vibeMatch';
@@ -25,6 +25,8 @@ interface QueueDrawerProps {
   vibeAnchorProfile?: SonicProfile | null;
   vibeMatchByTrackId?: Record<string, VibeMatchItem>;
   onToggleVibeMatch?: () => void;
+  likedTrackIds?: Set<string>;
+  onToggleLike?: (trackId: string, track?: IndieTrack) => void;
 }
 
 export const QueueDrawer: React.FC<QueueDrawerProps> = ({
@@ -43,6 +45,8 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({
   vibeAnchorProfile,
   vibeMatchByTrackId,
   onToggleVibeMatch,
+  likedTrackIds,
+  onToggleLike,
 }) => {
   if (!isOpen) return null;
 
@@ -89,6 +93,26 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({
                 <p className="text-sm font-bold text-white truncate">{currentTrack.title}</p>
                 <p className="text-xs text-neutral-300 truncate">{currentTrack.artist}</p>
               </div>
+              {onToggleLike && (
+                <button
+                  type="button"
+                  onClick={() => onToggleLike(currentTrack.id, currentTrack)}
+                  className="p-1.5 rounded-full text-neutral-400 hover:text-rose-400 transition-colors cursor-pointer shrink-0"
+                  aria-label={
+                    likedTrackIds?.has(currentTrack.id)
+                      ? `Unlike ${currentTrack.title}`
+                      : `Like ${currentTrack.title}`
+                  }
+                >
+                  <Heart
+                    className={`w-4 h-4 ${
+                      likedTrackIds?.has(currentTrack.id)
+                        ? 'text-rose-500 fill-rose-500'
+                        : 'text-neutral-400'
+                    }`}
+                  />
+                </button>
+              )}
               <div className="w-2.5 h-2.5 rounded-full bg-[#1ed760] animate-pulse shrink-0" />
             </div>
           </div>
@@ -204,13 +228,34 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({
                     )}
                   </div>
 
-                  <span className="text-xs text-neutral-400">
+                  {onToggleLike && (
+                    <button
+                      type="button"
+                      onClick={() => onToggleLike(track.id, track)}
+                      className={`p-1.5 rounded-full transition-colors cursor-pointer shrink-0 ${
+                        likedTrackIds?.has(track.id)
+                          ? 'text-rose-500 hover:text-rose-400'
+                          : 'text-neutral-400 opacity-75 sm:opacity-0 sm:group-hover:opacity-100 hover:text-rose-400'
+                      }`}
+                      aria-label={
+                        likedTrackIds?.has(track.id) ? `Unlike ${track.title}` : `Like ${track.title}`
+                      }
+                    >
+                      <Heart
+                        className={`w-3.5 h-3.5 ${
+                          likedTrackIds?.has(track.id) ? 'fill-rose-500 text-rose-500' : ''
+                        }`}
+                      />
+                    </button>
+                  )}
+
+                  <span className="text-xs text-neutral-400 tabular-nums shrink-0">
                     {formatDuration(track.duration)}
                   </span>
 
                   <button
                     onClick={() => onRemoveFromQueue(idx)}
-                    className="opacity-0 group-hover:opacity-100 p-1.5 text-neutral-400 hover:text-rose-400 rounded-lg hover:bg-white/10 transition-opacity"
+                    className="opacity-70 sm:opacity-0 sm:group-hover:opacity-100 p-1.5 text-neutral-400 hover:text-rose-400 rounded-lg hover:bg-white/10 transition-opacity shrink-0"
                     aria-label={`Remove ${track.title} from queue`}
                   >
                     <X className="w-4 h-4" />
@@ -272,6 +317,24 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({
                   </div>
 
                   <div className="flex items-center gap-1 shrink-0">
+                    {onToggleLike && (
+                      <button
+                        type="button"
+                        onClick={() => onToggleLike(track.id, track)}
+                        className="p-1.5 text-neutral-400 hover:text-rose-400 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
+                        aria-label={
+                          likedTrackIds?.has(track.id)
+                            ? `Unlike ${track.title}`
+                            : `Like ${track.title}`
+                        }
+                      >
+                        <Heart
+                          className={`w-3.5 h-3.5 ${
+                            likedTrackIds?.has(track.id) ? 'fill-rose-500 text-rose-500' : ''
+                          }`}
+                        />
+                      </button>
+                    )}
                     {onAddToQueue && (
                       <button
                         onClick={() => onAddToQueue(track)}

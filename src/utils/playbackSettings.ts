@@ -119,6 +119,7 @@ export interface PlaybackSettings {
   downloadOverCellular: boolean;
   // Appearance & App
   theme: AppTheme;
+  animatedFocusMode: boolean;
   compactMode: boolean;
   canvasVideo: boolean;
   explicitFilter: boolean;
@@ -142,6 +143,7 @@ export const DEFAULT_PLAYBACK_SETTINGS: PlaybackSettings = {
   autoAdjustQuality: true,
   downloadOverCellular: true,
   theme: 'spotify-dark',
+  animatedFocusMode: false,
   compactMode: false,
   canvasVideo: true,
   explicitFilter: false,
@@ -209,6 +211,10 @@ export function loadPlaybackSettings(): PlaybackSettings {
       theme: ['spotify-dark', 'amoled-black', 'gym-neon'].includes(parsed.theme)
         ? parsed.theme
         : DEFAULT_PLAYBACK_SETTINGS.theme,
+      animatedFocusMode:
+        typeof parsed.animatedFocusMode === 'boolean'
+          ? parsed.animatedFocusMode
+          : DEFAULT_PLAYBACK_SETTINGS.animatedFocusMode,
       compactMode:
         typeof parsed.compactMode === 'boolean'
           ? parsed.compactMode

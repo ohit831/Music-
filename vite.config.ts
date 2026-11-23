@@ -694,6 +694,25 @@ Return valid JSON conforming to this structure:
   };
 }
 
+function devPwaSafeRegisterPlugin(): Plugin {
+  return {
+    name: 'dev-pwa-safe-register',
+    apply: 'serve',
+    transformIndexHtml: {
+      order: 'post',
+      handler(html) {
+        // src/main.tsx registers the service worker directly via `virtual:pwa-register`,
+        // so stripping vite-plugin-pwa's HMR-only dev script prevents Vite 6
+        // `SendBeforeConnectError: send was called before connect` when HMR is disabled.
+        return html.replace(
+          /<script\s+id="vite-plugin-pwa:register-dev-sw"[\s\S]*?<\/script>\s*/gi,
+          ''
+        );
+      },
+    },
+  };
+}
+
 export default defineConfig(() => {
   return {
     plugins: [
@@ -701,6 +720,7 @@ export default defineConfig(() => {
       tailwindcss(),
       VitePWA({
         registerType: 'autoUpdate',
+        injectRegister: false,
         useCredentials: true,
         manifest: {
           id: '/',
@@ -794,8 +814,10 @@ export default defineConfig(() => {
         devOptions: {
           enabled: true,
           type: 'module',
+          suppressWarnings: true,
         },
       }),
+      devPwaSafeRegisterPlugin(),
       fullMusicApiPlugin(),
     ],
     resolve: {

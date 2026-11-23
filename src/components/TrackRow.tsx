@@ -29,7 +29,7 @@ interface TrackRowProps {
   isLiked: boolean;
   onPlay: (track: IndieTrack) => void;
   onPause: () => void;
-  onToggleLike: (trackId: string) => void;
+  onToggleLike: (trackId: string, track?: IndieTrack) => void;
   onShare: (track: IndieTrack) => void;
   onAddToQueue: (track: IndieTrack) => void;
   onSelectArtist?: (artistId: string) => void;
@@ -226,11 +226,11 @@ export const TrackRow: React.FC<TrackRowProps> = ({
       <div className="flex items-center gap-1.5 shrink-0">
         {/* Like Button */}
         <button
-          onClick={() => onToggleLike(track.id)}
+          onClick={() => onToggleLike(track.id, track)}
           className={`p-1.5 rounded-full transition-colors ${
             isLiked
               ? 'text-rose-500 hover:text-rose-400'
-              : 'text-neutral-400 opacity-0 group-hover:opacity-100 hover:text-white'
+              : 'text-neutral-400 opacity-75 sm:opacity-0 sm:group-hover:opacity-100 hover:text-white'
           }`}
           aria-label={isLiked ? `Unlike ${track.title}` : `Like ${track.title}`}
         >

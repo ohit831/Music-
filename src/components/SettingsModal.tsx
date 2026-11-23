@@ -855,6 +855,48 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
               </div>
 
+              {/* Animated Focus Mode */}
+              <div className="flex items-center justify-between p-4 rounded-2xl bg-white/[0.03] border border-white/10">
+                <div className="space-y-0.5 pr-4">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-white text-sm">Animated Focus Mode</span>
+                    <span className="text-[10px] font-mono font-semibold text-sky-300">
+                      Energy · Melancholy
+                    </span>
+                  </div>
+                  <p className="text-xs text-neutral-400">
+                    Transforms the app background into a subtle, slow-moving CSS gradient tuned to the current track’s energy and melancholy levels.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={localSettings.animatedFocusMode}
+                  aria-label="Toggle Animated Focus Mode"
+                  data-testid="settings-animated-focus-switch"
+                  onClick={() => {
+                    const next = !localSettings.animatedFocusMode;
+                    updateSetting('animatedFocusMode', next);
+                    if (onShowToast) {
+                      onShowToast(
+                        next
+                          ? 'Animated Focus mode enabled'
+                          : 'Animated Focus mode disabled'
+                      );
+                    }
+                  }}
+                  className={`relative inline-flex h-6 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
+                    localSettings.animatedFocusMode ? 'bg-[#1ed760]' : 'bg-neutral-800'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 ease-in-out ${
+                      localSettings.animatedFocusMode ? 'translate-x-6' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
+
               {/* Compact Mode */}
               <div className="flex items-center justify-between p-4 rounded-2xl bg-white/[0.03] border border-white/10">
                 <div className="space-y-0.5 pr-4">

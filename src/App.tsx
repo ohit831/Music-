@@ -37,7 +37,9 @@ import { AndroidBottomNav } from './components/AndroidBottomNav';
 import { AuthModal } from './components/AuthModal';
 import { UserProfileModal } from './components/UserProfileModal';
 import { EditMetadataModal } from './components/EditMetadataModal';
-import { Smartphone, Search, Sliders, Radio, Dumbbell, UserPlus, LogIn, Users } from 'lucide-react';
+import { AnimatedFocusBackdrop } from './components/AnimatedFocusBackdrop';
+import { Smartphone, Search, Sliders, Radio, Dumbbell, UserPlus, LogIn, Users, Aperture } from 'lucide-react';
+import { deriveAnimatedFocusGradient } from './utils/animatedFocus';
 import {
   loadPlaybackSettings,
   savePlaybackSettings,
@@ -60,6 +62,15 @@ import {
   createPlaylistFromImport,
   decodePlaylistJsonPayload,
 } from './utils/playlistJsonShare';
+import {
+  loadLikedSongsState,
+  mergeTracksWithLikedSnapshots,
+  resolveLikedTracks,
+  saveLikedSongsState,
+  syncLikedTrackMetadata,
+  toggleLikedSong,
+  type LikedSongsState,
+} from './utils/likedSongsStore';
 
 // Views
 import { HomeView } from './views/HomeView';
@@ -114,19 +125,35 @@ export default function App() {
   const [friendActivities, setFriendActivities] = useState<FriendActivity[]>(INITIAL_FRIEND_ACTIVITY);
   const [reviews] = useState(INITIAL_REVIEWS);
 
-  // Playback state
-  const [likedTrackIds, setLikedTrackIds] = useState<Set<string>>(
-    new Set(['trk-1', 'trk-2', 'trk-4'])
+  // Single source of truth for Liked Songs (persisted immediately to localStorage)
+  const [likedSongsState, setLikedSongsState] = useState<LikedSongsState>(() => {
+    const initialList = applyTrackMetadataOverrides(INITIAL_TRACKS, loadTrackMetadataOverrides());
+    return loadLikedSongsState(initialList);
+  });
+  const likedSongsStateRef = useRef<LikedSongsState>(likedSongsState);
+  likedSongsStateRef.current = likedSongsState;
+
+  const likedTrackIds = useMemo(() => new Set(likedSongsState.ids), [likedSongsState.ids]);
+  const allKnownTracks = useMemo(
+    () => mergeTracksWithLikedSnapshots(tracks, likedSongsState),
+    [tracks, likedSongsState]
   );
+  const likedTracks = useMemo(
+    () => resolveLikedTracks(likedSongsState, tracks),
+    [likedSongsState, tracks]
+  );
+
   const [activeHomePlaylistId, setActiveHomePlaylistId] = useState<string | null>(() =>
     loadActiveHomePlaylistId()
   );
   const initialDefaultTrack = useMemo(() => {
     const initialList = applyTrackMetadataOverrides(INITIAL_TRACKS, loadTrackMetadataOverrides());
+    const initialLiked = loadLikedSongsState(initialList);
+    const mergedInitial = mergeTracksWithLikedSnapshots(initialList, initialLiked);
     return getDefaultInitialTrack(
       loadSavedPlaylists(INITIAL_PLAYLISTS),
-      initialList,
-      new Set(['trk-1', 'trk-2', 'trk-4']),
+      mergedInitial,
+      new Set(initialLiked.ids),
       loadActiveHomePlaylistId()
     );
   }, []);
@@ -710,22 +737,29 @@ export default function App() {
     handlePlayTrack(currentList[prevIdx]);
   };
 
-  const handleToggleLike = (trackId: string) => {
-    setLikedTrackIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(trackId)) {
-        next.delete(trackId);
-        showToast('Removed from Liked Songs');
-      } else {
-        next.add(trackId);
-        showToast('Saved to your Liked Songs ❤️');
-        const trk = tracks.find((t) => t.id === trackId);
-        if (trk) {
-          listeningHistoryService.recordPlay(trk, 60, true);
-        }
+  const handleToggleLike = (trackId: string, trackSnapshot?: IndieTrack) => {
+    const resolvedInput: string | IndieTrack =
+      trackSnapshot ||
+      (currentTrackRef.current?.id === trackId ? currentTrackRef.current : trackId);
+    const catalog = mergeTracksWithLikedSnapshots(tracksRef.current, likedSongsStateRef.current);
+    const result = toggleLikedSong(likedSongsStateRef.current, resolvedInput, catalog);
+
+    likedSongsStateRef.current = result.state;
+    setLikedSongsState(result.state);
+    saveLikedSongsState(result.state);
+
+    if (result.isLiked) {
+      if (result.track) {
+        const likedTrack = result.track;
+        setTracks((prev) =>
+          prev.some((t) => t.id === likedTrack.id) ? prev : [likedTrack, ...prev]
+        );
+        listeningHistoryService.recordPlay(likedTrack, 60, true);
       }
-      return next;
-    });
+      showToast('Saved to Liked Songs');
+    } else {
+      showToast('Removed from Liked Songs');
+    }
   };
 
   // Global keyboard & hardware media-key shortcuts (Space, Left/Right Arrows, L, Media*)
@@ -745,7 +779,7 @@ export default function App() {
     onPause: () => {},
     onNext: () => {},
     onPrevious: () => {},
-    onToggleLike: (_trackId: string) => {},
+    onToggleLike: (_trackId: string, _track?: IndieTrack) => {},
   });
   keyboardHandlersRef.current = {
     hasBlockingModalOpen,
@@ -816,7 +850,7 @@ export default function App() {
 
   const handlePlayPlaylist = (playlist: Playlist, shuffle = false) => {
     const plTracks = playlist.trackIds
-      .map((id) => tracks.find((t) => t.id === id))
+      .map((id) => allKnownTracks.find((t) => t.id === id))
       .filter((t): t is IndieTrack => !!t);
 
     if (plTracks.length === 0) return;
@@ -941,6 +975,16 @@ export default function App() {
         t.id === override.trackId ? applyTrackMetadataOverride(t, override) : t
       )
     );
+    const existingLiked = likedSongsStateRef.current.tracksById[override.trackId];
+    if (existingLiked) {
+      const nextLiked = syncLikedTrackMetadata(
+        likedSongsStateRef.current,
+        applyTrackMetadataOverride(existingLiked, override)
+      );
+      likedSongsStateRef.current = nextLiked;
+      setLikedSongsState(nextLiked);
+      saveLikedSongsState(nextLiked);
+    }
     showToast(`Saved metadata & tags for "${override.title}"`);
   };
 
@@ -963,6 +1007,14 @@ export default function App() {
         t.id === trackId ? restoreOriginalTrack(trackId, INITIAL_TRACKS, t) || t : t
       )
     );
+    const existingLiked = likedSongsStateRef.current.tracksById[trackId];
+    if (existingLiked) {
+      const restored = restoreOriginalTrack(trackId, INITIAL_TRACKS, existingLiked) || existingLiked;
+      const nextLiked = syncLikedTrackMetadata(likedSongsStateRef.current, restored);
+      likedSongsStateRef.current = nextLiked;
+      setLikedSongsState(nextLiked);
+      saveLikedSongsState(nextLiked);
+    }
     showToast('Restored original track metadata');
   };
 
@@ -1050,14 +1102,14 @@ export default function App() {
   const activePlaylist = playlists.find((p) => p.id === selectedPlaylistId);
   const activeArtist = artists.find((a) => a.id === selectedArtistId);
 
-  // Liked tracks virtual playlist
+  // Liked tracks virtual playlist (derived directly from single source of truth)
   const likedPlaylist: Playlist = {
     id: 'pl-liked',
     title: 'Liked Songs',
-    description: 'Your private collection of discovered underground treasures.',
+    description: 'Your saved collection of favorite tracks across Apna Music.',
     coverGradient: 'from-indigo-600 via-purple-700 to-rose-600',
     coverEmoji: '❤️',
-    trackIds: Array.from(likedTrackIds),
+    trackIds: likedTracks.map((t) => t.id),
     createdAt: '2026-10-26',
     owner: 'You',
   };
@@ -1074,6 +1126,29 @@ export default function App() {
     owner: 'You',
   };
 
+  const isAnimatedFocusActive = playbackSettings.animatedFocusMode;
+  const animatedFocusConfig = useMemo(
+    () => deriveAnimatedFocusGradient(currentTrack, playbackSettings.theme),
+    [currentTrack?.energy, currentTrack?.melancholy, currentTrack?.bpm, playbackSettings.theme]
+  );
+
+  const handleToggleAnimatedFocus = () => {
+    const nextEnabled = !playbackSettings.animatedFocusMode;
+    const nextSettings: PlaybackSettings = {
+      ...playbackSettings,
+      animatedFocusMode: nextEnabled,
+    };
+    setPlaybackSettings(nextSettings);
+    savePlaybackSettings(nextSettings);
+    showToast(
+      nextEnabled
+        ? `Animated Focus on · ${animatedFocusConfig.vibeLabel} (${Math.round(
+            animatedFocusConfig.energy * 100
+          )}% Energy · ${Math.round(animatedFocusConfig.melancholy * 100)}% Melancholy)`
+        : 'Animated Focus off'
+    );
+  };
+
   const themeBgClass =
     playbackSettings.theme === 'amoled-black'
       ? 'bg-black'
@@ -1084,8 +1159,16 @@ export default function App() {
   return (
     <div
       data-theme={playbackSettings.theme}
-      className={`flex flex-col h-screen w-screen overflow-hidden ${themeBgClass} text-[#f3f3f3] transition-colors duration-300`}
+      data-animated-focus={isAnimatedFocusActive ? 'on' : 'off'}
+      className={`relative isolate flex flex-col h-screen w-screen overflow-hidden ${themeBgClass} text-[#f3f3f3] transition-colors duration-500`}
     >
+      {/* Subtle track-reactive Animated Focus CSS gradient background */}
+      <AnimatedFocusBackdrop
+        enabled={isAnimatedFocusActive}
+        currentTrack={currentTrack}
+        theme={playbackSettings.theme}
+      />
+
       {/* Toast alert */}
       {toastMessage && (
         <div
@@ -1098,22 +1181,46 @@ export default function App() {
       )}
 
       {/* Mobile Top App Bar */}
-      <header className="md:hidden flex items-center justify-between px-3.5 py-2.5 bg-[#0b0d17]/95 backdrop-blur-md border-b border-white/[0.08] shrink-0 select-none z-30">
-        <div className="flex items-center gap-2.5">
+      <header
+        className={`md:hidden relative flex items-center justify-between gap-1.5 px-2.5 py-2 backdrop-blur-xl border-b border-white/[0.08] shrink-0 select-none z-30 transition-colors duration-500 ${
+          isAnimatedFocusActive ? 'bg-[#0b0d17]/75' : 'bg-[#0b0d17]/95'
+        }`}
+      >
+        <div className="flex items-center gap-2 min-w-0">
           <img
             src="/assets/apna_music_logo.jpg"
             alt="Apna Music Logo"
-            className="w-8 h-8 rounded-lg object-cover border border-white/15 shadow-sm"
+            className="w-7 h-7 rounded-lg object-cover border border-white/15 shadow-sm shrink-0"
           />
-          <span className="font-bold text-sm tracking-tight text-white">Apna Music</span>
+          <span className="font-bold text-[13px] tracking-tight text-white whitespace-nowrap truncate">
+            Apna Music
+          </span>
         </div>
 
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1 shrink-0">
           <PWAInstallButton
             variant="mobile"
             onOpenInstallModal={() => setAndroidModalOpen(true)}
             onInstalledToast={showToast}
           />
+          <button
+            type="button"
+            onClick={handleToggleAnimatedFocus}
+            aria-pressed={isAnimatedFocusActive}
+            aria-label="Toggle Animated Focus mode"
+            data-testid="animated-focus-toggle-mobile"
+            title={`Animated Focus (${isAnimatedFocusActive ? 'On' : 'Off'}) · ${animatedFocusConfig.vibeLabel}`}
+            className={`p-1.5 rounded-full border active:scale-95 transition-all cursor-pointer shrink-0 ${
+              isAnimatedFocusActive
+                ? 'bg-white/15 text-white border-white/30 shadow-sm'
+                : 'text-slate-300 hover:text-white bg-white/[0.06] border-transparent'
+            }`}
+          >
+            <Aperture
+              className="w-3.5 h-3.5"
+              style={isAnimatedFocusActive ? { color: animatedFocusConfig.accentPrimary } : undefined}
+            />
+          </button>
           {currentUser ? (
             <button
               onClick={() => {
@@ -1124,47 +1231,47 @@ export default function App() {
                 );
                 setUserProfileModalOpen(true);
               }}
-              className="flex items-center gap-1.5 p-1 pr-2 rounded-full bg-white/[0.06] border border-white/10 active:scale-95 transition-all"
+              className="flex items-center gap-1.5 p-1 pr-2 rounded-full bg-white/[0.06] border border-white/10 active:scale-95 transition-all shrink-0"
             >
               <img
                 src={currentUser.avatarUrl}
                 alt={currentUser.name}
-                className="w-6 h-6 rounded-full object-cover border border-white/25"
+                className="w-5 h-5 rounded-full object-cover border border-white/25 shrink-0"
               />
-              <span className="text-[11px] font-semibold text-white max-w-[65px] truncate">
+              <span className="text-[11px] font-semibold text-white max-w-[56px] truncate">
                 {currentUser.name.split(' ')[0]}
               </span>
             </button>
           ) : (
             <button
               onClick={() => setAuthModalMode('signup')}
-              className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-white text-black font-bold text-[11px] shadow-sm active:scale-95 transition-all cursor-pointer"
+              className="flex items-center gap-1 px-2 py-1 rounded-full bg-white text-black font-bold text-[11px] whitespace-nowrap shrink-0 shadow-sm active:scale-95 transition-all cursor-pointer"
             >
-              <UserPlus className="w-3 h-3 stroke-[2.5]" />
+              <UserPlus className="w-3 h-3 stroke-[2.5] shrink-0" />
               <span>Sign Up</span>
             </button>
           )}
 
           <button
             onClick={() => handleSelectNavTab('search')}
-            className="p-1.5 text-slate-300 hover:text-white rounded-full bg-white/[0.06] active:scale-95 transition-all"
+            className="p-1.5 text-slate-300 hover:text-white rounded-full bg-white/[0.06] active:scale-95 transition-all shrink-0"
             aria-label="Search tracks and artists"
           >
-            <Search className="w-4 h-4" />
+            <Search className="w-3.5 h-3.5" />
           </button>
 
           <button
             onClick={() => setSettingsModalOpen(true)}
-            className="p-1.5 text-slate-300 hover:text-white rounded-full bg-white/[0.06] active:scale-95 transition-all"
+            className="p-1.5 text-slate-300 hover:text-white rounded-full bg-white/[0.06] active:scale-95 transition-all shrink-0"
             aria-label="Playback Settings"
           >
-            <Sliders className="w-4 h-4" />
+            <Sliders className="w-3.5 h-3.5" />
           </button>
         </div>
       </header>
 
       {/* Main App Workspace */}
-      <div className="flex flex-1 min-h-0 overflow-hidden">
+      <div className="relative z-10 flex flex-1 min-h-0 overflow-hidden">
         {/* Left Sidebar */}
         <Sidebar
           activeTab={activeTab}
@@ -1188,10 +1295,11 @@ export default function App() {
             setProfileInitialSection('overview');
             setUserProfileModalOpen(true);
           }}
+          isAnimatedFocusActive={isAnimatedFocusActive}
         />
 
         {/* Central Content Area */}
-        <main className="flex-1 overflow-y-auto px-3 sm:px-4 md:px-8 py-4 sm:py-6 relative pb-4 md:pb-6">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-2 sm:px-4 md:px-8 sm:py-5 relative pb-[calc(6rem+env(safe-area-inset-bottom))] md:pb-8">
           {/* Top Desktop Action Bar */}
           <div className="hidden md:flex items-center justify-between pb-4 mb-3 border-b border-white/[0.06]">
             <div className="flex items-center gap-2 text-xs text-slate-400">
@@ -1201,6 +1309,32 @@ export default function App() {
             </div>
 
             <div className="flex items-center gap-2.5">
+              <button
+                type="button"
+                onClick={handleToggleAnimatedFocus}
+                aria-pressed={isAnimatedFocusActive}
+                data-testid="animated-focus-toggle"
+                title={`Animated Focus (${isAnimatedFocusActive ? 'Active' : 'Off'}) · ${animatedFocusConfig.vibeLabel} · Energy ${Math.round(
+                  animatedFocusConfig.energy * 100
+                )}% · Melancholy ${Math.round(animatedFocusConfig.melancholy * 100)}%`}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer whitespace-nowrap ${
+                  isAnimatedFocusActive
+                    ? 'bg-white/[0.12] text-white border-white/25 shadow-sm'
+                    : 'bg-white/[0.04] hover:bg-white/[0.09] text-slate-300 hover:text-white border-white/10'
+                }`}
+              >
+                <Aperture
+                  className="w-3.5 h-3.5 shrink-0"
+                  style={isAnimatedFocusActive ? { color: animatedFocusConfig.accentPrimary } : undefined}
+                />
+                <span>Animated Focus</span>
+                {isAnimatedFocusActive && (
+                  <span
+                    className="w-1.5 h-1.5 rounded-full shrink-0"
+                    style={{ backgroundColor: animatedFocusConfig.accentPrimary }}
+                  />
+                )}
+              </button>
               <PWAInstallButton
                 variant="desktop"
                 onOpenInstallModal={() => setAndroidModalOpen(true)}
@@ -1282,7 +1416,7 @@ export default function App() {
           ) : activeTab === 'liked' ? (
             <PlaylistView
               playlist={likedPlaylist}
-              allTracks={tracks}
+              allTracks={allKnownTracks}
               currentTrack={currentTrack}
               isPlaying={isPlaying}
               likedTrackIds={likedTrackIds}
@@ -1305,7 +1439,7 @@ export default function App() {
           ) : activeTab === 'downloads' ? (
             <PlaylistView
               playlist={downloadedPlaylist}
-              allTracks={tracks}
+              allTracks={allKnownTracks}
               currentTrack={currentTrack}
               isPlaying={isPlaying}
               likedTrackIds={likedTrackIds}
@@ -1328,7 +1462,7 @@ export default function App() {
           ) : activeTab === 'library' ? (
             <LibraryView
               playlists={playlists}
-              allTracks={tracks}
+              allTracks={allKnownTracks}
               artists={artists}
               likedTrackIds={likedTrackIds}
               downloadedTrackIds={downloadedTrackIds}
@@ -1360,7 +1494,7 @@ export default function App() {
           ) : selectedPlaylistId && activePlaylist ? (
             <PlaylistView
               playlist={activePlaylist}
-              allTracks={tracks}
+              allTracks={allKnownTracks}
               currentTrack={currentTrack}
               isPlaying={isPlaying}
               likedTrackIds={likedTrackIds}
@@ -1389,7 +1523,7 @@ export default function App() {
             />
           ) : activeTab === 'discover' ? (
             <DiscoverView
-              tracks={tracks}
+              tracks={allKnownTracks}
               currentTrack={currentTrack}
               isPlaying={isPlaying}
               likedTrackIds={likedTrackIds}
@@ -1407,7 +1541,7 @@ export default function App() {
             />
           ) : activeTab === 'curator' ? (
             <AICuratorView
-              tracks={tracks}
+              tracks={allKnownTracks}
               artists={artists}
               currentTrack={currentTrack}
               isPlaying={isPlaying}
@@ -1422,7 +1556,7 @@ export default function App() {
             />
           ) : activeTab === 'search' ? (
             <SearchView
-              tracks={tracks}
+              tracks={allKnownTracks}
               artists={artists}
               playlists={playlists}
               currentTrack={currentTrack}
@@ -1449,23 +1583,18 @@ export default function App() {
               currentTrack={currentTrack}
               isPlaying={isPlaying}
               onPlayTrack={handlePlayTrack}
-              availableTracks={tracks}
+              availableTracks={allKnownTracks}
               onShareTrack={handleOpenShareTrack}
             />
           ) : (
             <HomeView
-              tracks={tracks}
-              playlists={playlists}
-              artists={artists}
-              reviews={reviews}
+              tracks={allKnownTracks}
+              likedTracks={likedTracks}
+              likedTrackIds={likedTrackIds}
               currentTrack={currentTrack}
               isPlaying={isPlaying}
               currentTime={currentTime}
               duration={duration}
-              volume={volume}
-              isMuted={isMuted}
-              isShuffle={isShuffle}
-              repeatMode={repeatMode}
               isLiked={currentTrack ? likedTrackIds.has(currentTrack.id) : false}
               isVideoVisible={isVideoVisible}
               onPlayTrack={handlePlayTrack}
@@ -1474,29 +1603,11 @@ export default function App() {
               onNextTrack={handleNextTrack}
               onPreviousTrack={handlePreviousTrack}
               onSeek={handleSeek}
-              onVolumeChange={handleVolumeChange}
-              onToggleMute={handleToggleMute}
-              onToggleShuffle={handleToggleShuffle}
-              onToggleRepeat={handleToggleRepeat}
               onToggleLike={handleToggleLike}
               onToggleVideo={() => setIsVideoVisible((prev) => !prev)}
               onPlayYouTubeTrack={(ytTrack) => handleAddTrackFromAnywhere(ytTrack, true)}
-              onSelectPlaylist={handleSelectPlaylist}
-              onSelectArtist={handleSelectArtist}
+              onPlayLikedAll={() => handlePlayPlaylist(likedPlaylist, false)}
               onGoToDiscover={() => handleSelectNavTab('discover')}
-              onOpenAndroidApp={() => setAndroidModalOpen(true)}
-              recommendedNextTracks={smartRecommendations}
-              onAddToQueue={handleAddToQueue}
-              onDismissRecommendation={handleDismissRecommendation}
-              listingPlaylists={listingPlaylists}
-              activeHomePlaylist={activeHomePlaylist}
-              activeHomePlaylistTracks={activeHomePlaylistTracks}
-              onSelectActiveHomePlaylist={handleSelectActiveHomePlaylist}
-              onPlayPlaylist={handlePlayPlaylist}
-              onOpenCreatePlaylist={() => {
-                setEditingPlaylist(null);
-                setCreatePlaylistModalOpen(true);
-              }}
             />
           )}
         </main>
@@ -1593,6 +1704,17 @@ export default function App() {
           if (currentTrack?.id === trackId) {
             setCurrentTrack((prev) => (prev ? { ...prev, youtubeId: ytId, fullSongAvailable: true } : null));
           }
+          const existingLiked = likedSongsStateRef.current.tracksById[trackId];
+          if (existingLiked) {
+            const nextLiked = syncLikedTrackMetadata(likedSongsStateRef.current, {
+              ...existingLiked,
+              youtubeId: ytId,
+              fullSongAvailable: true,
+            });
+            likedSongsStateRef.current = nextLiked;
+            setLikedSongsState(nextLiked);
+            saveLikedSongsState(nextLiked);
+          }
         }}
         onPlaybackFallback={(track) => {
           showToast(`Playing resilient audio stream for "${track.title}" 🎧`);
@@ -1675,6 +1797,8 @@ export default function App() {
         vibeAnchorProfile={vibeAnchorProfile}
         vibeMatchByTrackId={vibeMatchByTrackId}
         onToggleVibeMatch={handleToggleVibeMatch}
+        likedTrackIds={likedTrackIds}
+        onToggleLike={handleToggleLike}
       />
 
       {/* Playback & Audio Settings Modal */}

@@ -209,6 +209,59 @@ input[type="range"]:hover::-webkit-slider-thumb {
   animation: playerbar-glow 620ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+/* Animated Focus mode subtle slow-moving CSS gradient */
+@keyframes animated-focus-drift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes animated-focus-float-a {
+  0%,
+  100% {
+    transform: translate3d(0%, 0%, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(7%, 5%, 0) scale(1.08);
+  }
+}
+
+@keyframes animated-focus-float-b {
+  0%,
+  100% {
+    transform: translate3d(0%, 0%, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(-6%, -5%, 0) scale(1.07);
+  }
+}
+
+.animated-focus-surface {
+  background-size: 240% 240%;
+  background-position: 0% 50%;
+  will-change: background-position;
+}
+
+.animated-focus-surface--active {
+  animation: animated-focus-drift var(--focus-duration, 24s) ease-in-out infinite;
+}
+
+.animated-focus-orb-a {
+  animation: animated-focus-float-a var(--focus-orb-duration, 32s) ease-in-out infinite;
+  will-change: transform;
+}
+
+.animated-focus-orb-b {
+  animation: animated-focus-float-b calc(var(--focus-orb-duration, 32s) * 1.15) ease-in-out infinite;
+  will-change: transform;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-playerbar-art-enter-next,
   .animate-playerbar-art-exit-next,
@@ -220,7 +273,10 @@ input[type="range"]:hover::-webkit-slider-thumb {
   .animate-playerbar-meta-enter-prev,
   .animate-playerbar-meta-enter-jump,
   .animate-playerbar-sweep,
-  .animate-playerbar-glow {
+  .animate-playerbar-glow,
+  .animated-focus-surface--active,
+  .animated-focus-orb-a,
+  .animated-focus-orb-b {
     animation: none !important;
   }
 }

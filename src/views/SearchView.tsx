@@ -25,6 +25,7 @@ import {
   Share2,
   History,
   Trash2,
+  Heart,
 } from 'lucide-react';
 import {
   IndieTrack,
@@ -53,7 +54,7 @@ interface SearchViewProps {
   likedTrackIds: Set<string>;
   onPlayTrack: (track: IndieTrack) => void;
   onPauseTrack: () => void;
-  onToggleLike: (trackId: string) => void;
+  onToggleLike: (trackId: string, track?: IndieTrack) => void;
   onShareTrack: (track: IndieTrack) => void;
   onAddToQueue: (track: IndieTrack) => void;
   onSelectArtist: (artistId: string) => void;
@@ -711,6 +712,34 @@ export const SearchView: React.FC<SearchViewProps> = ({
                           {onlineTrk.viewsText || (isAlbumOrJukebox ? 'Full Jukebox' : 'Official Audio')}
                         </span>
                         <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onToggleLike(onlineTrk.id, onlineTrk);
+                            }}
+                            className={`p-1.5 rounded-full hover:bg-white/10 transition-colors cursor-pointer ${
+                              likedTrackIds.has(onlineTrk.id)
+                                ? 'text-rose-500'
+                                : 'text-neutral-400 hover:text-rose-400'
+                            }`}
+                            title={
+                              likedTrackIds.has(onlineTrk.id)
+                                ? 'Remove from Liked Songs'
+                                : 'Save to Liked Songs'
+                            }
+                            aria-label={
+                              likedTrackIds.has(onlineTrk.id)
+                                ? `Unlike ${onlineTrk.title}`
+                                : `Like ${onlineTrk.title}`
+                            }
+                          >
+                            <Heart
+                              className={`w-3.5 h-3.5 ${
+                                likedTrackIds.has(onlineTrk.id) ? 'fill-rose-500 text-rose-500' : ''
+                              }`}
+                            />
+                          </button>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
