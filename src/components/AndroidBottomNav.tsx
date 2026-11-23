@@ -6,16 +6,16 @@
 import React from 'react';
 import {
   Home,
-  Compass,
+  Search,
+  Dumbbell,
   ListMusic,
-  Waves,
   Smartphone,
-  Sliders,
+  Sparkles,
 } from 'lucide-react';
 
 interface AndroidBottomNavProps {
-  activeTab: 'home' | 'discover' | 'playlists' | 'radar';
-  onSelectTab: (tab: 'home' | 'discover' | 'playlists' | 'radar') => void;
+  activeTab: string;
+  onSelectTab: (tab: any) => void;
   onOpenVisualizer: () => void;
   onOpenAndroidModal: () => void;
   onOpenSettings: () => void;
@@ -25,71 +25,71 @@ interface AndroidBottomNavProps {
 export const AndroidBottomNav: React.FC<AndroidBottomNavProps> = ({
   activeTab,
   onSelectTab,
-  onOpenVisualizer,
   onOpenAndroidModal,
-  onOpenSettings,
-  isVisualizerActive = false,
 }) => {
   return (
     <nav
-      className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#0d0d10]/95 backdrop-blur-lg border-t border-white/10 px-2 py-1.5 flex items-center justify-around select-none shadow-[0_-8px_25px_rgba(0,0,0,0.6)]"
-      aria-label="Android Bottom Navigation"
+      className="md:hidden shrink-0 z-40 bg-[#101220]/95 backdrop-blur-xl border-t border-white/[0.08] px-1 py-1.5 flex items-center justify-around select-none shadow-[0_-10px_30px_rgba(0,0,0,0.75)]"
+      aria-label="Mobile Fast Access Navigation"
     >
-      {/* Home */}
+      {/* 1. Home */}
       <button
         onClick={() => onSelectTab('home')}
-        className={`flex flex-col items-center justify-center flex-1 py-1 transition-all active:scale-90 ${
-          activeTab === 'home' ? 'text-[#1ed760]' : 'text-neutral-400 hover:text-white'
+        className={`flex flex-col items-center justify-center min-w-[56px] py-1 transition-all active:scale-95 cursor-pointer ${
+          activeTab === 'home' ? 'text-sky-400 font-semibold' : 'text-slate-400 hover:text-white'
         }`}
       >
-        <Home className="w-5 h-5 mb-0.5" />
-        <span className="text-[10px] font-semibold tracking-tight">Home</span>
+        <Home className={`w-5 h-5 mb-0.5 ${activeTab === 'home' ? 'stroke-[2.25]' : ''}`} />
+        <span className="text-[10px] tracking-tight">Home</span>
       </button>
 
-      {/* Discover */}
+      {/* 2. Discover / Search */}
       <button
-        onClick={() => onSelectTab('discover')}
-        className={`flex flex-col items-center justify-center flex-1 py-1 transition-all active:scale-90 ${
-          activeTab === 'discover' ? 'text-[#1ed760]' : 'text-neutral-400 hover:text-white'
+        onClick={() => onSelectTab('search')}
+        className={`flex flex-col items-center justify-center min-w-[56px] py-1 transition-all active:scale-95 cursor-pointer ${
+          activeTab === 'search' ? 'text-sky-400 font-semibold' : 'text-slate-400 hover:text-white'
         }`}
       >
-        <Compass className="w-5 h-5 mb-0.5" />
-        <span className="text-[10px] font-semibold tracking-tight">Discover</span>
+        <Search className={`w-5 h-5 mb-0.5 ${activeTab === 'search' ? 'stroke-[2.25]' : ''}`} />
+        <span className="text-[10px] tracking-tight">Discover</span>
       </button>
 
-      {/* D3 Visualizer button - Center spotlight for phone */}
+      {/* 3. AI Curator */}
       <button
-        onClick={onOpenVisualizer}
-        className="flex flex-col items-center justify-center flex-1 py-1 text-neutral-300 hover:text-white active:scale-90 transition-all group"
-      >
-        <div className="relative">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#1ed760]/20 to-emerald-400/30 border border-[#1ed760]/40 flex items-center justify-center text-[#1ed760] group-hover:scale-105 transition-transform shadow-sm">
-            <Waves className="w-4 h-4 animate-pulse" />
-          </div>
-          <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-[#1ed760] animate-ping" />
-        </div>
-        <span className="text-[9px] font-bold text-[#1ed760] mt-0.5">D3 Visual</span>
-      </button>
-
-      {/* Playlists */}
-      <button
-        onClick={() => onSelectTab('playlists')}
-        className={`flex flex-col items-center justify-center flex-1 py-1 transition-all active:scale-90 ${
-          activeTab === 'playlists' ? 'text-[#1ed760]' : 'text-neutral-400 hover:text-white'
+        onClick={() => onSelectTab('curator')}
+        className={`flex flex-col items-center justify-center min-w-[56px] py-1 transition-all active:scale-95 cursor-pointer ${
+          activeTab === 'curator' ? 'text-sky-400 font-semibold' : 'text-slate-400 hover:text-white'
         }`}
       >
-        <ListMusic className="w-5 h-5 mb-0.5" />
-        <span className="text-[10px] font-semibold tracking-tight">Library</span>
+        <Sparkles className={`w-5 h-5 mb-0.5 ${activeTab === 'curator' ? 'stroke-[2.25]' : ''}`} />
+        <span className="text-[10px] tracking-tight">Curator</span>
       </button>
 
-      {/* Android App Button */}
+      {/* 4. Library / Playlists */}
+      <button
+        onClick={() => onSelectTab('library')}
+        className={`flex flex-col items-center justify-center min-w-[56px] py-1 transition-all active:scale-95 cursor-pointer ${
+          activeTab === 'library' || activeTab === 'playlists'
+            ? 'text-sky-400 font-semibold'
+            : 'text-slate-400 hover:text-white'
+        }`}
+      >
+        <ListMusic
+          className={`w-5 h-5 mb-0.5 ${
+            activeTab === 'library' || activeTab === 'playlists' ? 'stroke-[2.25]' : ''
+          }`}
+        />
+        <span className="text-[10px] tracking-tight">Playlists</span>
+      </button>
+
+      {/* 5. Install App */}
       <button
         onClick={onOpenAndroidModal}
-        className="flex flex-col items-center justify-center flex-1 py-1 text-emerald-400 hover:text-white active:scale-90 transition-all"
-        title="Get Android App"
+        className="flex flex-col items-center justify-center min-w-[56px] py-1 text-slate-300 hover:text-white transition-all active:scale-95 cursor-pointer"
+        title="Install Mobile App"
       >
         <Smartphone className="w-5 h-5 mb-0.5" />
-        <span className="text-[10px] font-semibold tracking-tight">App</span>
+        <span className="text-[10px] font-medium tracking-tight">App</span>
       </button>
     </nav>
   );

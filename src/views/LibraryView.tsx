@@ -25,6 +25,7 @@ import {
   CheckCircle2,
   Trash2,
   HardDrive,
+  Tag,
 } from 'lucide-react';
 import { IndieTrack, Playlist, IndieArtist, calculatePlaylistDuration, formatDuration } from '../utils/musicDiscovery';
 import {
@@ -32,6 +33,8 @@ import {
   calculateTotalStorage,
   formatBytes,
 } from '../utils/downloadManager';
+import { collectCatalogTags, filterTracksByTag } from '../utils/trackMetadata';
+import { TrackRow } from '../components/TrackRow';
 
 interface LibraryViewProps {
   playlists: Playlist[];
@@ -57,9 +60,13 @@ interface LibraryViewProps {
   onRemoveDownload?: (trackId: string) => void;
   onClearAllDownloads?: () => void;
   initialFilter?: LibraryFilter;
+  onShareTrack?: (track: IndieTrack) => void;
+  onAddToQueue?: (track: IndieTrack) => void;
+  onAddToPlaylist?: (playlistId: string, trackId: string) => void;
+  onEditMetadata?: (track: IndieTrack) => void;
 }
 
-type LibraryFilter = 'all' | 'playlists' | 'liked' | 'artists' | 'full' | 'downloads';
+type LibraryFilter = 'all' | 'playlists' | 'liked' | 'artists' | 'full' | 'downloads' | 'tags';
 type SortOption = 'recent' | 'alphabetical' | 'tracks';
 
 export const LibraryView: React.FC<LibraryViewProps> = ({
@@ -86,11 +93,31 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
   onRemoveDownload,
   onClearAllDownloads,
   initialFilter = 'all',
+  onShareTrack,
+  onAddToQueue,
+  onAddToPlaylist,
+  onEditMetadata,
 }) => {
   const [filter, setFilter] = useState<LibraryFilter>(initialFilter);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortOption>('recent');
   const [viewLayout, setViewLayout] = useState<'grid' | 'list'>('grid');
+  const [selectedTag, setSelectedTag] = useState<string | null>(null);
+
+  const catalogTags = useMemo(() => collectCatalogTags(allTracks, 24), [allTracks]);
+  const activeTag = selectedTag || catalogTags[0]?.tag || null;
+  const tagMatchedTracks = useMemo(() => {
+    const base = filterTracksByTag(allTracks, activeTag);
+    if (!searchQuery.trim()) return base;
+    const q = searchQuery.toLowerCase();
+    return base.filter(
+      (t) =>
+        t.title.toLowerCase().includes(q) ||
+        t.artist.toLowerCase().includes(q) ||
+        t.album.toLowerCase().includes(q) ||
+        t.genre.toLowerCase().includes(q)
+    );
+  }, [allTracks, activeTag, searchQuery]);
 
   // Filtered and sorted playlists
   const filteredPlaylists = useMemo(() => {
@@ -222,7 +249,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
       {/* Filter and Search Bar */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-[#111116] p-3 rounded-2xl border border-white/10">
         {/* Filter Pills */}
-        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 sm:pb-0">
+        <div className="flex items-center gap-1.5 overflow-x-auto sm:overflow-visible sm:flex-wrap no-scrollbar pb-1 sm:pb-0">
           <button
             onClick={() => setFilter('all')}
             className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all shrink-0 ${
@@ -290,6 +317,18 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
           >
             <Download className="w-3 h-3" />
             <span>Downloaded ({downloadedTracks.length})</span>
+          </button>
+
+          <button
+            onClick={() => setFilter('tags')}
+            className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all shrink-0 flex items-center gap-1.5 ${
+              filter === 'tags'
+                ? 'bg-sky-400 text-black shadow-md'
+                : 'bg-white/5 text-neutral-400 hover:text-white hover:bg-white/10'
+            }`}
+          >
+            <Tag className="w-3 h-3" />
+            <span>Tags ({catalogTags.length})</span>
           </button>
         </div>
 
@@ -857,6 +896,82 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
               })}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Custom Tags Organizer Section */}
+      {filter === 'tags' && (
+        <div className="space-y-4">
+          <div className="p-5 rounded-3xl bg-[#131521] border border-white/10 space-y-3">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <div>
+                <h3 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+                  <Tag className="w-4 h-4 text-sky-400" />
+                  <span>Organize Library by Tags</span>
+                </h3>
+                <p className="text-xs text-neutral-400 mt-0.5">
+                  Select a tag below to group matching songs, or use a track's menu (•••) to edit metadata & apply custom tags.
+                </p>
+              </div>
+              {activeTag && (
+                <span className="text-xs font-mono text-sky-300 bg-sky-400/10 border border-sky-400/25 px-3 py-1 rounded-lg">
+                  #{activeTag} · {tagMatchedTracks.length} tracks
+                </span>
+              )}
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {catalogTags.map((item) => {
+                const isSelected = activeTag === item.tag;
+                return (
+                  <button
+                    key={`lib-tag-${item.tag}`}
+                    type="button"
+                    onClick={() => setSelectedTag(item.tag)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-medium border transition-colors cursor-pointer ${
+                      isSelected
+                        ? 'bg-white text-black border-white font-bold'
+                        : 'bg-white/[0.04] hover:bg-white/[0.08] text-sky-200 border-white/10'
+                    }`}
+                  >
+                    #{item.tag} ({item.count})
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="bg-white/5 border border-white/10 rounded-3xl p-3 divide-y divide-white/5">
+            {tagMatchedTracks.length === 0 ? (
+              <p className="text-center py-10 text-xs text-neutral-400">
+                No tracks found for #{activeTag || 'tag'}.
+              </p>
+            ) : (
+              tagMatchedTracks.map((track, idx) => (
+                <TrackRow
+                  key={`tag-row-${track.id}`}
+                  track={track}
+                  index={idx}
+                  isPlaying={isPlaying}
+                  isCurrentTrack={currentTrack?.id === track.id}
+                  isLiked={likedTrackIds.has(track.id)}
+                  isDownloaded={downloadedTrackIds.has(track.id)}
+                  isDownloading={downloadingTrackIds.has(track.id)}
+                  onDownloadTrack={onDownloadTrack}
+                  onPlay={onPlayTrack}
+                  onPause={onPauseTrack}
+                  onToggleLike={onToggleLike}
+                  onShare={onShareTrack || (() => {})}
+                  onAddToQueue={onAddToQueue || (() => {})}
+                  onSelectArtist={onSelectArtist}
+                  userPlaylists={playlists}
+                  onAddToPlaylist={onAddToPlaylist || (() => {})}
+                  onEditMetadata={onEditMetadata}
+                  onSelectTag={(tag) => setSelectedTag(tag)}
+                />
+              ))
+            )}
+          </div>
         </div>
       )}
     </div>

@@ -18,6 +18,7 @@ import {
   Flame,
   Radio,
   Share2,
+  ChevronRight,
 } from 'lucide-react';
 import {
   IndieTrack,
@@ -42,6 +43,8 @@ interface DiscoverViewProps {
   userPlaylists: Playlist[];
   onAddToPlaylist: (playlistId: string, trackId: string) => void;
   onSavePersonalizedPlaylist: (playlist: Playlist) => void;
+  onGoToCurator?: () => void;
+  onEditMetadata?: (track: IndieTrack) => void;
 }
 
 const SUBGENRES = [
@@ -68,6 +71,8 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
   userPlaylists,
   onAddToPlaylist,
   onSavePersonalizedPlaylist,
+  onGoToCurator,
+  onEditMetadata,
 }) => {
   const [selectedGenres, setSelectedGenres] = useState<string[]>(['Dream Pop', 'Bedroom Lo-Fi']);
   const [obscurityTarget, setObscurityTarget] = useState<number>(0.75); // 0 to 1
@@ -142,6 +147,35 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
           {savedMixToast ? 'Saved to Your Library!' : 'Save Personalized Mix'}
         </button>
       </div>
+
+      {/* AI Curator Spotlight Card */}
+      {onGoToCurator && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 md:p-5 rounded-2xl bg-gradient-to-r from-purple-900/30 via-[#161622] to-emerald-900/20 border border-purple-500/30 shadow-lg">
+          <div className="flex items-center gap-3.5">
+            <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-purple-500 to-[#1ed760] flex items-center justify-center text-black font-extrabold shrink-0 shadow-md">
+              <Sparkles className="w-6 h-6" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-extrabold text-white text-sm">AI Music Curator Engine Active</span>
+                <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-purple-500 text-white font-mono">
+                  GEMINI 3.8
+                </span>
+              </div>
+              <p className="text-xs text-neutral-300 mt-0.5">
+                Generate personalized Daily or Weekly playlists analyzing your play history and skipped tracks.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onGoToCurator}
+            className="w-full sm:w-auto px-5 py-2.5 rounded-full bg-gradient-to-r from-purple-500 to-[#1ed760] text-black font-black text-xs flex items-center justify-center gap-2 shadow-md active:scale-95 transition-all shrink-0 cursor-pointer"
+          >
+            <span>Open AI Curator</span>
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* Interactive Sound Capsule Controls */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -388,6 +422,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
               onSelectArtist={onSelectArtist}
               userPlaylists={userPlaylists}
               onAddToPlaylist={onAddToPlaylist}
+              onEditMetadata={onEditMetadata}
             />
           ))}
         </div>

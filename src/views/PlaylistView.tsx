@@ -18,8 +18,11 @@ import {
   Download,
   CheckCircle2,
   Loader2,
+  Tag,
+  Pencil,
 } from 'lucide-react';
 import { IndieTrack, Playlist, calculatePlaylistDuration } from '../utils/musicDiscovery';
+import { collectCatalogTags, filterTracksByTag } from '../utils/trackMetadata';
 import { TrackRow } from '../components/TrackRow';
 
 interface PlaylistViewProps {
@@ -44,6 +47,10 @@ interface PlaylistViewProps {
   downloadingTrackIds?: Set<string>;
   onDownloadTrack?: (track: IndieTrack) => void;
   onDownloadPlaylist?: (tracks: IndieTrack[]) => void;
+  isHomeMainListing?: boolean;
+  onSetAsHomeListing?: (playlistId: string) => void;
+  onEditMetadata?: (track: IndieTrack) => void;
+  onEditPlaylist?: (playlist: Playlist) => void;
 }
 
 export const PlaylistView: React.FC<PlaylistViewProps> = ({
@@ -68,13 +75,20 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({
   downloadingTrackIds,
   onDownloadTrack,
   onDownloadPlaylist,
+  isHomeMainListing = false,
+  onSetAsHomeListing,
+  onEditMetadata,
+  onEditPlaylist,
 }) => {
   const [filterQuery, setFilterQuery] = useState('');
+  const [selectedTag, setSelectedTag] = useState<string | null>(null);
 
   // Resolve tracks in playlist
   const playlistTracks = playlist.trackIds
     .map((id) => allTracks.find((t) => t.id === id))
     .filter((t): t is IndieTrack => !!t);
+
+  const availableTags = collectCatalogTags(playlistTracks, 12);
 
   const allDownloaded =
     playlistTracks.length > 0 &&
@@ -83,13 +97,20 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({
   const isAnyDownloading =
     playlistTracks.some((t) => downloadingTrackIds?.has(t.id));
 
+  const tagFilteredTracks = filterTracksByTag(playlistTracks, selectedTag);
+
   const displayedTracks = filterQuery
-    ? playlistTracks.filter(
-        (t) =>
-          t.title.toLowerCase().includes(filterQuery.toLowerCase()) ||
-          t.artist.toLowerCase().includes(filterQuery.toLowerCase())
-      )
-    : playlistTracks;
+    ? tagFilteredTracks.filter((t) => {
+        const q = filterQuery.toLowerCase();
+        return (
+          t.title.toLowerCase().includes(q) ||
+          t.artist.toLowerCase().includes(q) ||
+          t.album.toLowerCase().includes(q) ||
+          t.genre.toLowerCase().includes(q) ||
+          (t.tags || []).some((tag) => tag.toLowerCase().includes(q))
+        );
+      })
+    : tagFilteredTracks;
 
   // Recommended tracks not yet in this playlist
   const recommendedTracks = allTracks
@@ -148,8 +169,8 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({
       </div>
 
       {/* Action Buttons Bar */}
-      <div className="flex items-center justify-between gap-4 py-2">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 py-2">
+        <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
           {/* Big Play Button */}
           <button
             onClick={() => onPlayPlaylist(playlist, false)}
@@ -176,12 +197,41 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({
           {/* Share Playlist */}
           <button
             onClick={() => onSharePlaylist(playlist)}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-white/10 hover:bg-white/15 text-white text-xs font-semibold border border-white/10 transition-colors"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-white/10 hover:bg-white/15 text-white text-xs font-semibold border border-white/10 transition-colors cursor-pointer"
             aria-label="Share this playlist"
           >
             <Share2 className="w-4 h-4" />
             Share Soundwave
           </button>
+
+          {/* Edit / Backup Playlist */}
+          {onEditPlaylist && (
+            <button
+              onClick={() => onEditPlaylist(playlist)}
+              data-testid="edit-playlist-button"
+              className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-white/10 hover:bg-white/15 text-white text-xs font-semibold border border-white/10 transition-colors cursor-pointer"
+              aria-label="Edit playlist details and JSON export"
+            >
+              <Pencil className="w-3.5 h-3.5" />
+              Edit Playlist
+            </button>
+          )}
+
+          {/* Pin as Main Home Listing */}
+          {onSetAsHomeListing && (
+            <button
+              onClick={() => onSetAsHomeListing(playlist.id)}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold border transition-colors cursor-pointer ${
+                isHomeMainListing
+                  ? 'bg-[#1ed760]/20 text-[#1ed760] border-[#1ed760]/40'
+                  : 'bg-white/10 hover:bg-white/15 text-white border-white/10'
+              }`}
+              title="Use this playlist for your main Home screen track listing"
+            >
+              {isHomeMainListing && <Check className="w-3.5 h-3.5" />}
+              <span>{isHomeMainListing ? 'Main Home Listing' : 'Set as Main Listing'}</span>
+            </button>
+          )}
 
           {/* Download Playlist Button */}
           {onDownloadPlaylist && playlistTracks.length > 0 && (
@@ -248,6 +298,44 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({
         )}
       </div>
 
+      {/* Tag Filter Strip for Playlist Organization */}
+      {availableTags.length > 0 && (
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-neutral-400 shrink-0 mr-1">
+            <Tag className="w-3 h-3 text-sky-400" />
+            Tags:
+          </span>
+          <button
+            type="button"
+            onClick={() => setSelectedTag(null)}
+            className={`px-2.5 py-1 rounded-lg text-[11px] font-medium border transition-colors shrink-0 cursor-pointer ${
+              selectedTag === null
+                ? 'bg-white text-black border-white font-semibold'
+                : 'bg-white/[0.04] hover:bg-white/[0.08] text-neutral-300 border-white/10'
+            }`}
+          >
+            All ({playlistTracks.length})
+          </button>
+          {availableTags.map((item) => {
+            const active = selectedTag === item.tag;
+            return (
+              <button
+                key={`pl-tag-${item.tag}`}
+                type="button"
+                onClick={() => setSelectedTag(active ? null : item.tag)}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-medium border transition-colors shrink-0 cursor-pointer ${
+                  active
+                    ? 'bg-sky-400 text-black border-sky-300 font-semibold'
+                    : 'bg-white/[0.04] hover:bg-white/[0.08] text-sky-200 border-white/10'
+                }`}
+              >
+                #{item.tag} ({item.count})
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {/* Tracks Table */}
       <div className="bg-white/5 border border-white/10 rounded-3xl p-3">
         {/* Table Header */}
@@ -266,7 +354,9 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({
           <div className="text-center py-12 text-neutral-400 space-y-2">
             <p className="text-sm font-semibold text-white">No tracks in this playlist yet</p>
             <p className="text-xs text-neutral-400">
-              Add some of the recommended indie tracks below!
+              {selectedTag
+                ? `No tracks match tag #${selectedTag}.`
+                : 'Add some of the recommended indie tracks below!'}
             </p>
           </div>
         ) : (
@@ -290,6 +380,8 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({
                 onSelectArtist={onSelectArtist}
                 userPlaylists={userPlaylists}
                 onAddToPlaylist={onAddTrackToPlaylist}
+                onEditMetadata={onEditMetadata}
+                onSelectTag={(tag) => setSelectedTag((prev) => (prev === tag ? null : tag))}
               />
             ))}
           </div>

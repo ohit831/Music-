@@ -19,10 +19,15 @@ import {
   Smartphone,
   X,
   Download,
+  Dumbbell,
+  UserPlus,
+  LogIn,
+  Flame,
 } from 'lucide-react';
 import { Playlist } from '../utils/musicDiscovery';
+import { UserProfile } from '../services/authService';
 
-export type ActiveNavTab = 'home' | 'discover' | 'search' | 'jam' | 'liked' | 'library' | 'downloads';
+export type ActiveNavTab = 'home' | 'discover' | 'curator' | 'search' | 'jam' | 'liked' | 'library' | 'downloads';
 
 interface SidebarProps {
   activeTab: ActiveNavTab;
@@ -37,6 +42,9 @@ interface SidebarProps {
   onOpenSettings?: () => void;
   onOpenAndroidApp?: () => void;
   crossfadeDuration?: number;
+  user?: UserProfile | null;
+  onOpenAuth?: (mode: 'signup' | 'signin') => void;
+  onOpenProfile?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -52,6 +60,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenSettings,
   onOpenAndroidApp,
   crossfadeDuration = 4,
+  user,
+  onOpenAuth,
+  onOpenProfile,
 }) => {
   const [libraryFilter, setLibraryFilter] = useState<'all' | 'playlists' | 'liked' | 'downloads'>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -67,104 +78,160 @@ export const Sidebar: React.FC<SidebarProps> = ({
   });
 
   return (
-    <aside className="hidden md:flex w-64 bg-[#0a0a0d] border-r border-white/10 flex-col h-full select-none shrink-0">
+    <aside className="hidden md:flex w-64 bg-[#0b0d17] border-r border-white/[0.08] flex-col h-full select-none shrink-0 overflow-y-auto">
       {/* Brand Logo */}
-      <div className="p-5 flex items-center justify-between">
+      <div className="p-4 pb-3.5 flex items-center justify-between border-b border-white/[0.06]">
         <button
           onClick={() => onSelectTab('home')}
-          className="flex items-center gap-2.5 text-left group"
+          className="flex items-center gap-3 text-left group cursor-pointer"
         >
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#1ed760] to-emerald-400 flex items-center justify-center text-black font-extrabold shadow-lg shadow-[#1ed760]/20 group-hover:scale-105 transition-transform">
-            <Radio className="w-5 h-5" />
-          </div>
+          <img
+            src="/assets/apna_music_logo.jpg"
+            alt="Apna Music Logo"
+            className="w-10 h-10 rounded-xl object-cover border border-white/15 shadow-lg group-hover:scale-105 transition-transform"
+          />
           <div>
-            <div className="flex items-center gap-1.5">
-              <span className="font-extrabold text-base tracking-tight text-white">
-                IndieWave
-              </span>
-              <span className="text-[9px] font-bold uppercase tracking-wider bg-[#1ed760]/20 text-[#1ed760] px-1.5 py-0.2 rounded-full border border-[#1ed760]/30">
-                PRO
-              </span>
-            </div>
-            <p className="text-[10px] text-neutral-400">Discover Underground</p>
+            <span className="font-bold text-base tracking-tight text-white group-hover:text-sky-400 transition-colors block">
+              Apna Music
+            </span>
+            <p className="text-[11px] text-slate-400 font-medium">Hi-Fi Audio & Discovery</p>
           </div>
         </button>
       </div>
 
+      {/* User Account / Sign Up Header Card */}
+      <div className="px-3 pt-3">
+        {user ? (
+          <button
+            onClick={onOpenProfile}
+            className="w-full p-2.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.07] border border-white/[0.08] flex items-center justify-between transition-all group text-left cursor-pointer"
+          >
+            <div className="flex items-center gap-2.5 min-w-0">
+              <img
+                src={user.avatarUrl}
+                alt={user.name}
+                className="w-8 h-8 rounded-full object-cover border border-white/20 shrink-0"
+              />
+              <div className="min-w-0">
+                <span className="font-semibold text-xs text-white truncate block group-hover:text-sky-400 transition-colors">
+                  {user.name}
+                </span>
+                <p className="text-[10px] text-slate-400 truncate">
+                  {user.gymVibe} · {user.workoutStreak}d streak
+                </p>
+              </div>
+            </div>
+          </button>
+        ) : (
+          <div className="p-3 rounded-xl bg-white/[0.04] border border-white/[0.08]">
+            <p className="text-xs font-semibold text-white mb-1">Personalize Your Mix</p>
+            <p className="text-[11px] text-slate-400 mb-2.5 leading-tight">
+              Sync playlists, smart queue & offline tracks across devices.
+            </p>
+            <div className="grid grid-cols-2 gap-1.5">
+              <button
+                onClick={() => onOpenAuth?.('signup')}
+                className="py-1.5 px-2 rounded-lg bg-white hover:bg-slate-200 text-black font-bold text-[11px] flex items-center justify-center gap-1 transition-all cursor-pointer"
+              >
+                <UserPlus className="w-3 h-3 stroke-[2.5]" />
+                <span>Sign Up</span>
+              </button>
+              <button
+                onClick={() => onOpenAuth?.('signin')}
+                className="py-1.5 px-2 rounded-lg bg-white/10 hover:bg-white/15 text-white font-semibold text-[11px] flex items-center justify-center gap-1 transition-all cursor-pointer"
+              >
+                <LogIn className="w-3 h-3" />
+                <span>Log In</span>
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Main Navigation */}
-      <nav className="px-3 space-y-1" aria-label="Main navigation">
+      <nav className="px-3 pt-3 space-y-0.5" aria-label="Main navigation">
         <button
           onClick={() => onSelectTab('home')}
-          className={`w-full flex items-center gap-3.5 px-3.5 py-2.5 rounded-xl font-semibold text-sm transition-colors ${
+          className={`w-full flex items-center gap-3 px-3.5 py-2 rounded-xl font-semibold text-sm transition-colors cursor-pointer ${
             activeTab === 'home' && !selectedPlaylistId
-              ? 'bg-white/10 text-[#1ed760]'
-              : 'text-neutral-400 hover:text-white hover:bg-white/5'
+              ? 'bg-white/[0.08] text-sky-400'
+              : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
           }`}
         >
-          <Home className="w-5 h-5" />
+          <Home className="w-4 h-4" />
           Home
         </button>
 
         <button
           onClick={() => onSelectTab('discover')}
-          className={`w-full flex items-center gap-3.5 px-3.5 py-2.5 rounded-xl font-semibold text-sm transition-colors ${
+          className={`w-full flex items-center gap-3 px-3.5 py-2 rounded-xl font-semibold text-sm transition-colors cursor-pointer ${
             activeTab === 'discover' && !selectedPlaylistId
-              ? 'bg-white/10 text-[#1ed760]'
-              : 'text-neutral-400 hover:text-white hover:bg-white/5'
+              ? 'bg-white/[0.08] text-sky-400'
+              : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
           }`}
         >
-          <Compass className="w-5 h-5" />
+          <Compass className="w-4 h-4" />
           Discovery Radar
         </button>
 
         <button
-          onClick={() => onSelectTab('search')}
-          className={`w-full flex items-center gap-3.5 px-3.5 py-2.5 rounded-xl font-semibold text-sm transition-colors ${
-            activeTab === 'search' && !selectedPlaylistId
-              ? 'bg-white/10 text-[#1ed760]'
-              : 'text-neutral-400 hover:text-white hover:bg-white/5'
+          onClick={() => onSelectTab('curator')}
+          className={`w-full flex items-center justify-between px-3.5 py-2 rounded-xl font-semibold text-sm transition-all group cursor-pointer ${
+            activeTab === 'curator' && !selectedPlaylistId
+              ? 'bg-white/[0.08] text-sky-400'
+              : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
           }`}
         >
-          <Search className="w-5 h-5" />
+          <div className="flex items-center gap-3">
+            <Sparkles className="w-4 h-4" />
+            <span>AI Curator</span>
+          </div>
+        </button>
+
+        <button
+          onClick={() => onSelectTab('search')}
+          className={`w-full flex items-center gap-3 px-3.5 py-2 rounded-xl font-semibold text-sm transition-colors cursor-pointer ${
+            activeTab === 'search' && !selectedPlaylistId
+              ? 'bg-white/[0.08] text-sky-400'
+              : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
+          }`}
+        >
+          <Search className="w-4 h-4" />
           Search & Vibes
         </button>
 
         <button
           onClick={() => onSelectTab('jam')}
-          className={`w-full flex items-center gap-3.5 px-3.5 py-2.5 rounded-xl font-semibold text-sm transition-colors ${
+          className={`w-full flex items-center gap-3 px-3.5 py-2 rounded-xl font-semibold text-sm transition-colors cursor-pointer ${
             activeTab === 'jam' && !selectedPlaylistId
-              ? 'bg-white/10 text-[#1ed760]'
-              : 'text-neutral-400 hover:text-white hover:bg-white/5'
+              ? 'bg-white/[0.08] text-sky-400'
+              : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
           }`}
         >
-          <Users className="w-5 h-5" />
+          <Users className="w-4 h-4" />
           <span className="flex-1 text-left">Live Jam Room</span>
-          <span className="w-2 h-2 rounded-full bg-[#1ed760] animate-ping" />
         </button>
       </nav>
 
       {/* Add Music from Anywhere CTA */}
       {onOpenAddMusic && (
-        <div className="px-3 pt-3">
+        <div className="px-3 pt-2.5">
           <button
             onClick={onOpenAddMusic}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-bold text-xs bg-gradient-to-r from-[#1ed760]/20 via-emerald-500/10 to-transparent text-[#1ed760] hover:bg-[#1ed760]/25 border border-[#1ed760]/30 transition-all group shadow-sm hover:border-[#1ed760]/50"
+            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl font-semibold text-xs bg-white/[0.05] hover:bg-white/[0.09] text-white border border-white/[0.08] transition-all group cursor-pointer"
           >
-            <div className="w-6 h-6 rounded-lg bg-[#1ed760] text-black flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+            <div className="w-6 h-6 rounded-lg bg-white text-black flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
               <Plus className="w-4 h-4 stroke-[2.5]" />
             </div>
             <div className="flex-1 text-left">
-              <p className="font-extrabold text-white text-[12px] leading-tight">Add Music</p>
-              <p className="text-[10px] text-[#1ed760]/90">From Web / Link</p>
+              <p className="font-semibold text-white text-[12px] leading-tight">Add Music</p>
+              <p className="text-[10px] text-slate-400">From Web / YouTube Link</p>
             </div>
-            <span className="text-[9px] px-1.5 py-0.5 rounded bg-white/10 text-neutral-300 font-mono">
-              URL
-            </span>
           </button>
         </div>
       )}
 
-      <div className="mx-4 my-3 h-px bg-white/10" />
+      <div className="mx-4 my-2 h-px bg-white/10 shrink-0" />
 
       {/* Library Section */}
       <div className="flex items-center justify-between px-5 mb-2">
@@ -181,21 +248,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <Layers
             className={`w-4 h-4 transition-colors ${
               activeTab === 'library' && !selectedPlaylistId
-                ? 'text-[#1ed760]'
+                ? 'text-sky-400'
                 : 'group-hover:text-white'
             }`}
           />
           <span
             className={`text-xs font-bold uppercase tracking-wider transition-colors ${
               activeTab === 'library' && !selectedPlaylistId
-                ? 'text-[#1ed760]'
+                ? 'text-sky-400'
                 : 'group-hover:text-white'
             }`}
           >
             Your Library
           </span>
-          <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-white/10 text-neutral-400 group-hover:text-white transition-colors">
-            {playlists.length + (likedTrackCount > 0 ? 1 : 0)}
+          <span className="text-[10px] font-mono text-slate-400 group-hover:text-white transition-colors tabular-nums">
+            ({playlists.length + (likedTrackCount > 0 ? 1 : 0)})
           </span>
         </div>
         <div className="flex items-center gap-1">
@@ -245,10 +312,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
         )}
 
-        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
+        <div className="flex items-center flex-wrap gap-1">
           <button
             onClick={() => setLibraryFilter('all')}
-            className={`px-2 py-0.5 rounded-full text-[11px] font-semibold transition-colors ${
+            className={`px-2 py-0.5 rounded-full text-[10.5px] font-semibold transition-colors ${
               libraryFilter === 'all'
                 ? 'bg-white/20 text-white'
                 : 'text-neutral-400 hover:text-white hover:bg-white/5'
@@ -258,7 +325,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
           <button
             onClick={() => setLibraryFilter('playlists')}
-            className={`px-2 py-0.5 rounded-full text-[11px] font-semibold transition-colors ${
+            className={`px-2 py-0.5 rounded-full text-[10.5px] font-semibold transition-colors ${
               libraryFilter === 'playlists'
                 ? 'bg-white/20 text-white'
                 : 'text-neutral-400 hover:text-white hover:bg-white/5'
@@ -268,7 +335,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
           <button
             onClick={() => setLibraryFilter('liked')}
-            className={`px-2 py-0.5 rounded-full text-[11px] font-semibold transition-colors flex items-center gap-1 ${
+            className={`px-2 py-0.5 rounded-full text-[10.5px] font-semibold transition-colors flex items-center gap-1 ${
               libraryFilter === 'liked'
                 ? 'bg-rose-500/20 text-rose-300'
                 : 'text-neutral-400 hover:text-white hover:bg-white/5'
@@ -279,7 +346,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
           <button
             onClick={() => setLibraryFilter('downloads')}
-            className={`px-2 py-0.5 rounded-full text-[11px] font-semibold transition-colors flex items-center gap-1 ${
+            className={`px-2 py-0.5 rounded-full text-[10.5px] font-semibold transition-colors flex items-center gap-1 ${
               libraryFilter === 'downloads'
                 ? 'bg-blue-500/20 text-blue-300'
                 : 'text-neutral-400 hover:text-white hover:bg-white/5'
@@ -292,7 +359,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* Playlists List */}
-      <div className="flex-1 overflow-y-auto px-2 space-y-1">
+      <div className="flex-1 min-h-[210px] overflow-y-auto px-2 space-y-1">
         {/* Liked Songs Entry */}
         {(libraryFilter === 'all' || libraryFilter === 'liked') && !searchQuery && (
           <button
@@ -388,14 +455,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="px-3 pt-2">
           <button
             onClick={onOpenSettings}
-            className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl font-semibold text-sm text-neutral-300 hover:text-white bg-white/[0.03] hover:bg-white/[0.08] border border-white/5 transition-all group"
+            className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl font-medium text-sm text-slate-300 hover:text-white bg-white/[0.03] hover:bg-white/[0.07] border border-white/[0.06] transition-all group cursor-pointer"
           >
             <div className="flex items-center gap-3">
-              <Sliders className="w-4 h-4 text-neutral-400 group-hover:text-[#1ed760] transition-colors" />
+              <Sliders className="w-4 h-4 text-slate-400 group-hover:text-sky-400 transition-colors" />
               <span>Playback Settings</span>
             </div>
-            <span className="text-[10px] font-mono font-bold bg-[#1ed760]/20 text-[#1ed760] px-2 py-0.5 rounded-full border border-[#1ed760]/30">
-              {crossfadeDuration === 0 ? 'Off' : `${crossfadeDuration}s fade`}
+            <span className="text-[11px] font-mono text-slate-400 tabular-nums">
+              {crossfadeDuration === 0 ? 'Off' : `${crossfadeDuration}s`}
             </span>
           </button>
         </div>
@@ -403,32 +470,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Android & Online Mobile App Install Button */}
       {onOpenAndroidApp && (
-        <div className="px-3 pt-2">
+        <div className="px-3 pt-2 pb-4">
           <button
             onClick={onOpenAndroidApp}
-            className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-[#1ed760]/20 via-emerald-500/10 to-transparent hover:bg-[#1ed760]/25 border border-[#1ed760]/40 transition-all group shadow-sm cursor-pointer"
+            className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold text-white bg-white/[0.05] hover:bg-white/[0.09] border border-white/[0.08] transition-all group cursor-pointer"
           >
             <div className="flex items-center gap-2.5">
-              <Smartphone className="w-4 h-4 text-[#1ed760] group-hover:scale-110 transition-transform" />
-              <span>Online & Mobile App</span>
+              <Smartphone className="w-4 h-4 text-sky-400 group-hover:scale-105 transition-transform" />
+              <span>Get Mobile App</span>
             </div>
-            <span className="text-[9px] font-extrabold uppercase tracking-wider bg-[#1ed760] text-black px-2 py-0.5 rounded-full font-mono shadow-sm">
-              INSTALL
-            </span>
+            <span className="text-[11px] text-sky-400 font-medium">Install →</span>
           </button>
         </div>
       )}
-
-      {/* Creator / Discovery Callout */}
-      <div className="p-3 m-3 rounded-2xl bg-gradient-to-br from-[#1ed760]/10 via-white/5 to-transparent border border-[#1ed760]/20">
-        <div className="flex items-center gap-2 mb-1.5">
-          <Sparkles className="w-4 h-4 text-[#1ed760]" />
-          <p className="text-xs font-bold text-white">Daily Indie Radar</p>
-        </div>
-        <p className="text-[11px] text-neutral-400 leading-tight">
-          Over 1,200 Bandcamp releases filtered down to today’s top 0.1% gems.
-        </p>
-      </div>
     </aside>
   );
 };

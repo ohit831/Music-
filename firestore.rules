@@ -1,0 +1,278 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner() {
+      return isVerifiedUser() &&
+        request.auth.token.email == 'rohitrrathod1958@gmail.com';
+    }
+
+    function isValidId(id) {
+      return id is string &&
+        id.size() >= 1 &&
+        id.size() <= 128 &&
+        id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidEventId(id) {
+      return id is string &&
+        id.size() >= 4 &&
+        id.size() <= 80 &&
+        id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidLoginMethod(method) {
+      return method in ['google', 'email_signup', 'email_signin', 'quick_demo'];
+    }
+
+    function isValidLoginEvent(data, eventId) {
+      return data.keys().hasAll([
+          'id',
+          'uid',
+          'visitorName',
+          'visitorEmail',
+          'loginMethod',
+          'gymVibe',
+          'deviceLabel',
+          'loggedInAtIso',
+          'loggedInAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id',
+          'uid',
+          'visitorName',
+          'visitorEmail',
+          'loginMethod',
+          'gymVibe',
+          'deviceLabel',
+          'loggedInAtIso',
+          'loggedInAt'
+        ]) &&
+        isValidEventId(data.id) &&
+        data.id == eventId &&
+        isValidId(data.uid) &&
+        data.uid == request.auth.uid &&
+        data.visitorName is string &&
+        data.visitorName.size() >= 1 &&
+        data.visitorName.size() <= 80 &&
+        data.visitorEmail is string &&
+        data.visitorEmail.size() >= 3 &&
+        data.visitorEmail.size() <= 120 &&
+        data.loginMethod is string &&
+        data.loginMethod.size() <= 24 &&
+        isValidLoginMethod(data.loginMethod) &&
+        data.gymVibe is string &&
+        data.gymVibe.size() >= 1 &&
+        data.gymVibe.size() <= 48 &&
+        data.deviceLabel is string &&
+        data.deviceLabel.size() >= 1 &&
+        data.deviceLabel.size() <= 64 &&
+        data.loggedInAtIso is string &&
+        data.loggedInAtIso.size() >= 10 &&
+        data.loggedInAtIso.size() <= 40 &&
+        data.loggedInAt is timestamp &&
+        data.loggedInAt == request.time;
+    }
+
+    function isValidUserPublicProfile(data, userId) {
+      return data.keys().hasAll(['uid', 'displayName', 'gymVibe', 'updatedAt']) &&
+        data.keys().hasOnly(['uid', 'displayName', 'gymVibe', 'updatedAt']) &&
+        isValidId(data.uid) &&
+        data.uid == userId &&
+        data.uid == request.auth.uid &&
+        data.displayName is string &&
+        data.displayName.size() >= 1 &&
+        data.displayName.size() <= 80 &&
+        data.gymVibe is string &&
+        data.gymVibe.size() >= 1 &&
+        data.gymVibe.size() <= 48 &&
+        data.updatedAt is timestamp &&
+        data.updatedAt == request.time;
+    }
+
+    function isValidUserPrivateInfo(data, userId) {
+      return data.keys().hasAll(['uid', 'email', 'updatedAt']) &&
+        data.keys().hasOnly(['uid', 'email', 'updatedAt']) &&
+        isValidId(data.uid) &&
+        data.uid == userId &&
+        data.uid == request.auth.uid &&
+        data.email is string &&
+        data.email.size() >= 3 &&
+        data.email.size() <= 120 &&
+        data.updatedAt is timestamp &&
+        data.updatedAt == request.time;
+    }
+
+    function isValidTrackMetadata(data, trackId) {
+      return data.keys().hasAll([
+          'uid',
+          'trackId',
+          'title',
+          'artist',
+          'album',
+          'genre',
+          'releaseYear',
+          'language',
+          'bpm',
+          'linerNotes',
+          'tags',
+          'updatedAtIso',
+          'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'uid',
+          'trackId',
+          'title',
+          'artist',
+          'album',
+          'genre',
+          'releaseYear',
+          'language',
+          'bpm',
+          'linerNotes',
+          'tags',
+          'updatedAtIso',
+          'updatedAt'
+        ]) &&
+        isValidId(data.uid) &&
+        data.uid == request.auth.uid &&
+        isValidId(data.trackId) &&
+        data.trackId == trackId &&
+        data.title is string &&
+        data.title.size() >= 1 &&
+        data.title.size() <= 120 &&
+        data.artist is string &&
+        data.artist.size() >= 1 &&
+        data.artist.size() <= 120 &&
+        data.album is string &&
+        data.album.size() <= 120 &&
+        data.genre is string &&
+        data.genre.size() >= 1 &&
+        data.genre.size() <= 60 &&
+        data.releaseYear is int &&
+        data.releaseYear >= 1900 &&
+        data.releaseYear <= 2100 &&
+        data.language is string &&
+        data.language.size() <= 24 &&
+        data.bpm is int &&
+        (data.bpm == 0 || (data.bpm >= 30 && data.bpm <= 300)) &&
+        data.linerNotes is string &&
+        data.linerNotes.size() <= 600 &&
+        data.tags is list &&
+        data.tags.size() <= 10 &&
+        (data.tags.size() == 0 || (data.tags[0] is string && data.tags[0].size() >= 1 && data.tags[0].size() <= 32)) &&
+        data.updatedAtIso is string &&
+        data.updatedAtIso.size() >= 10 &&
+        data.updatedAtIso.size() <= 40 &&
+        data.updatedAt is timestamp &&
+        data.updatedAt == request.time;
+    }
+
+    // Sanitized non-sensitive login events (zero passwords/hashes/tokens)
+    match /login_events/{eventId} {
+      allow get: if isValidEventId(eventId) && (
+        isOwner() ||
+        (isVerifiedUser() && existing().uid == request.auth.uid)
+      );
+      allow list: if isOwner();
+      allow create: if isVerifiedUser() &&
+        isValidEventId(eventId) &&
+        isValidLoginEvent(incoming(), eventId);
+      allow update, delete: if false;
+    }
+
+    // Publicly scoped non-PII profile
+    match /users/{userId} {
+      allow get: if isValidId(userId) && isVerifiedUser() && (
+        request.auth.uid == userId || isOwner()
+      );
+      allow list: if false;
+      allow create: if isValidId(userId) &&
+        isVerifiedUser() &&
+        request.auth.uid == userId &&
+        isValidUserPublicProfile(incoming(), userId);
+      allow update: if isValidId(userId) &&
+        isVerifiedUser() &&
+        request.auth.uid == userId &&
+        isValidUserPublicProfile(incoming(), userId) &&
+        incoming().uid == existing().uid &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'gymVibe', 'updatedAt']);
+      allow delete: if false;
+
+      // Isolated PII document
+      match /private/info {
+        allow get: if isValidId(userId) && isVerifiedUser() && (
+          request.auth.uid == userId || isOwner()
+        );
+        allow list: if false;
+        allow create: if isValidId(userId) &&
+          isVerifiedUser() &&
+          request.auth.uid == userId &&
+          isValidUserPrivateInfo(incoming(), userId);
+        allow update: if isValidId(userId) &&
+          isVerifiedUser() &&
+          request.auth.uid == userId &&
+          isValidUserPrivateInfo(incoming(), userId) &&
+          incoming().uid == existing().uid &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['email', 'updatedAt']);
+        allow delete: if false;
+      }
+
+      // Per-user customized track metadata & custom organization tags
+      match /track_metadata/{trackId} {
+        allow get, list: if isValidId(userId) &&
+          isVerifiedUser() &&
+          request.auth.uid == userId;
+        allow create: if isValidId(userId) &&
+          isValidId(trackId) &&
+          isVerifiedUser() &&
+          request.auth.uid == userId &&
+          isValidTrackMetadata(incoming(), trackId);
+        allow update: if isValidId(userId) &&
+          isValidId(trackId) &&
+          isVerifiedUser() &&
+          request.auth.uid == userId &&
+          isValidTrackMetadata(incoming(), trackId) &&
+          incoming().uid == existing().uid &&
+          incoming().trackId == existing().trackId &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'title',
+            'artist',
+            'album',
+            'genre',
+            'releaseYear',
+            'language',
+            'bpm',
+            'linerNotes',
+            'tags',
+            'updatedAtIso',
+            'updatedAt'
+          ]);
+        allow delete: if isValidId(userId) &&
+          isValidId(trackId) &&
+          isVerifiedUser() &&
+          request.auth.uid == userId;
+      }
+    }
+  }
+}

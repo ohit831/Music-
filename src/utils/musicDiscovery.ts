@@ -35,6 +35,7 @@ export interface IndieTrack {
   obscurity: number; // 0 to 1 (1 = hyper underground <1,000 plays, 0 = global mega hit)
   tags: string[];
   lyrics?: string[];
+  syncedLyrics?: Array<{ time: number; text: string }>;
   linerNotes?: string;
   addedBy?: string; // friend name if collaborative
   audioUrl?: string; // real streaming audio / preview mp3/aac
@@ -46,6 +47,8 @@ export interface IndieTrack {
   bpm?: number;
   fullSongAvailable?: boolean;
   language?: 'kannada' | 'hindi' | 'english' | string;
+  isAlbum?: boolean;
+  viewsText?: string;
 }
 
 export interface IndieArtist {
@@ -166,10 +169,32 @@ export function filterIndieCatalog(
 
     if (!cleanQuery) return true;
 
+    // Special language / genre shortcuts when typing Kannada or Hindi
+    if (cleanQuery === 'kannada' || cleanQuery === 'ಕನ್ನಡ') {
+      if (
+        track.language === 'kannada' ||
+        track.id.startsWith('kn-') ||
+        (track.genre && track.genre.toLowerCase().includes('kannada'))
+      ) {
+        return true;
+      }
+    }
+    if (cleanQuery === 'hindi' || cleanQuery === 'bollywood' || cleanQuery === 'हिन्दी') {
+      if (
+        track.language === 'hindi' ||
+        track.id.startsWith('hn-') ||
+        (track.genre && track.genre.toLowerCase().includes('hindi'))
+      ) {
+        return true;
+      }
+    }
+
     return (
       track.title.toLowerCase().includes(cleanQuery) ||
       track.artist.toLowerCase().includes(cleanQuery) ||
       track.album.toLowerCase().includes(cleanQuery) ||
+      (track.genre && track.genre.toLowerCase().includes(cleanQuery)) ||
+      (track.language && track.language.toLowerCase().includes(cleanQuery)) ||
       track.tags.some((tag) => tag.toLowerCase().includes(cleanQuery))
     );
   });
@@ -284,7 +309,7 @@ export function createSharePayload(track: IndieTrack, note?: string): {
   const encoded = typeof btoa !== 'undefined' ? btoa(unescape(encodeURIComponent(json))) : Buffer.from(json).toString('base64');
   const appOrigin = typeof window !== 'undefined' && window.location ? window.location.origin : 'https://indiewave.app';
   const shareUrl = `${appOrigin}/?track=${encodeURIComponent(track.id)}&ref=share&s=${encodeURIComponent(encoded)}`;
-  const summaryText = `Check out "${track.title}" by ${track.artist} on IndieWave! #IndieMusic #${track.genre.replace(/\s+/g, '')}`;
+  const summaryText = `Check out "${track.title}" by ${track.artist} on Apna Music! #ApnaMusic #${track.genre.replace(/\s+/g, '')}`;
 
   return {
     payloadStr: encoded,
@@ -327,43 +352,56 @@ export function formatListenersCount(count: number): string {
   return count.toLocaleString();
 }
 
-const KNOWN_YOUTUBE_HITS: Record<string, string> = {
+export const KNOWN_YOUTUBE_HITS: Record<string, string> = {
   'blinding lights': '4NRXx6U8ABQ',
-  'starboy': 'dqt8Z1k0oWQ',
+  'starboy': '34Na4j8AVgA',
   'as it was': 'H5v3kku4y6Q',
   'cruel summer': 'ic8j13piAhQ',
   'flowers': 'G7KNmW9a75Y',
   'birds of a feather': 'V9PVRfjEBTI',
   'sunflower': 'ApXoWvfEYVU',
   'levitating': 'TUVcZfQe-Kw',
-  'kill bill': 'SQnc1Q3n26E',
+  'kill bill': 'MSRcC626prw',
   'heat waves': 'mRD0-GxqHVo',
-  'do i wanna know': 'bpOSxM0zyN8',
+  'do i wanna know': 'bpOSxM0rNPM',
   'vampire': 'RlPNh_PBZb4',
-  'espresso': 'eVli-tstM5E',
-  'too sweet': 'aezstBMeqV8',
+  'espresso': '51zjlMhdSTE',
+  'too sweet': 'NTpbbQUBbuo',
   'humble': 'tvTRZJ-4EyI',
-  'good luck babe': '1bZsVfA0_F4',
+  'good luck babe': '1RKqOmSkGgM',
+  'good luck, babe!': '1RKqOmSkGgM',
   'get lucky': '5NV6Rdv1a3I',
   'dreams': 'Y3ywicffOj4',
   'smells like teen spirit': 'hTWKbfoikeg',
   'bohemian rhapsody': 'fJ9rUzIMcZQ',
-  'chamber of reflection': 'NY8IS0ss-zk',
+  'chamber of reflection': 'MJoSyNdffGo',
   'pink + white': 'uzS3WG6__G4',
-  'video games': 'cE6wxJpnukU',
+  'video games': 'Qi5ppQAozIM',
   'yellow': 'yKNxeF4KMsY',
   'bad guy': 'DyDfgMOUjCI',
   'anti-hero': 'b1kbLwvqugk',
   'drivers license': 'ZmDBbnmKpqQ',
-  'watermelon sugar': 'E07s5ZYygmg',
-  'snooze': 'LDY_Xyx3WbE',
+  'watermelon sugar': '7-x3uD5z1bQ',
+  'snooze': 'Sv5yCzPCkv8',
   'shape of you': 'JGwWNGJdvx8',
   'stay': 'kTJczUoc26U',
   'save your tears': 'XXYlFuWEuKI',
   'gods plan': 'xpVfcZ0ZcFM',
   'not like us': 'H58vbez_m4E',
-  'taste': 'k0Q4_w9N9qg',
+  'taste': 'KEG7b851Ric',
   'karma police': '1uYWYWPc9HU',
+  'lose control': '9gWIIIr2Asw',
+  'someone you loved': 'zABLecsR5UE',
+  'water': 'XoiOOiuH8iI',
+  'million dollar baby': 'zG5YzRxOcsI',
+  'i wanna be yours': 'nyuo9-OjNNg',
+  'sweater weather': 'GCdwKhTtNNw',
+  'daylight': 'MoN9ql6Yymw',
+  'riptide': 'uJ_1HMAGb4k',
+  'another love': 'MwpMEbgC7DA',
+  'viva la vida': 'dvgZkm1xWPE',
+  'lose yourself': '_Yhyp-_hX2s',
+  'seven': 'QU9c0053UAU',
   // Kannada Chartbusters - Verified Real Full Song IDs
   'singara siriye': 'Q-yJcnX0Qzg',
   'ra ra rakkamma': 'ScPxjcfacwg',
@@ -378,42 +416,44 @@ const KNOWN_YOUTUBE_HITS: Record<string, string> = {
   'marali manasagide': '01uRBlLAjFg',
   'anisuthide': 'nlsLKA6hlVQ',
   'bombe helutaite': 'fpGvB7AT1vA',
-  'salaam rocky bhai': '0WbMM431U0o',
-  'soul of dia': 'M29x1W8r7E8',
+  'dwapara': 'wiur_AGatGU',
+  'minchagi neenu': 'cTYyAEvsOZs',
+  'salaam rocky bhai': 'vDHy2_o8YzU',
+  'soul of dia': 'cO4eJxbCedc',
   'geleya geleya': 'SxRSPyJewgg',
   'kaarmoda saridu': 'hYOXLwqviR8',
   'karma song': 'pnWvZCAvv9Y',
   // Hindi & Bollywood Mega-Hits - Verified Real Full Song IDs
   'kesariya': 'BddP6PYo2gs',
   'tum hi ho': 'IJq0yyWug1k',
-  'chaleya': 'VAdGW7QDJUI',
+  'chaleya': 'VAdGW7QDJiU',
   'apna bana le': 'ElZfdU54Cp8',
   'o maahi': '8sLS2knUa6Y',
-  'tere vaaste': 'GvAfl9QG8Q4',
-  'pehle bhi main': '2ENXZq5hJyo',
-  'satranga': 'HrnrqYxYrbk',
+  'tere vaaste': '9E9SAt7uJ_I',
+  'pehle bhi main': 'HrnrqYxYrbk',
+  'satranga': '_Wv2iV8b0hA',
   'tauba tauba': 'LK7-_dgAVQE',
-  'chaiyya chaiyya': 'PQmrmVs10X8',
+  'chaiyya chaiyya': '9MX-QejdVaQ',
   'kun faya kun': 'T94PHkuydcw',
   'agar tum saath ho': 'sK7riqg2mr4',
   'kabira': 'jHNNMj5bNQw',
-  'pee loon': 'j7_lSP8VC3o',
+  'pee loon': 'Nbr_KJT0TIc',
   'kal ho naa ho': 'g0eO74UmRBs',
   'ghungroo': 'qFkNATtc3mc',
   'raataan lambiyan': 'gvyUuxdRdR4',
-  'maan meri jaan': 'VuG7FT97Q74',
-  'kahani suno': '_XBVWlI8TsQ',
-  'husn': 'gvy8eN6Hn_4',
-  'baarishein': 'dLwS03n0zQY',
+  'maan meri jaan': 'A66TYFdz8YA',
+  'kahani suno': 'qhYLX8QWIHQ',
+  'husn': 'sFMRqxCexDk',
+  'baarishein': 'PJWemSzExXs',
   'namo namo': 'dx4Teh-nv3A',
-  'die with a smile': 'kPa7bsKwL-8',
+  'die with a smile': 'PfH7jq_uSCM',
   'please please please': 'cF1Na4AIecM',
-  'a bar song': 't7bQwdJ-TBU',
+  'a bar song': 't7bQwwqW-Hc',
   'beautiful things': 'Oa_RSwwpPaA',
-  'i had some help': '4QIZk-UqU_8',
+  'i had some help': '11T6kF66dKY',
   'lunch': 'MB3VkzPdgLA',
   'we cant be friends': 'KNtJGQkC-WI',
-  'greedy': 'To2SKUKjufM',
+  'greedy': '8AtiHCDGZ8c',
   'houdini': 'suAR1PYFNYA',
   // 90s Kannada Classics - Verified Real Full Song IDs
   'nanna preethiya hudugi': 'J9BJadKmqCw',
@@ -424,21 +464,32 @@ const KNOWN_YOUTUBE_HITS: Record<string, string> = {
   'preethse preethse': 'NzONsYZN5UA',
   'o mallige': 'jfIMlwQkPFA',
   // 90s Bollywood / Hindi Classics - Verified Real Full Song IDs
-  'tujhe dekha toh': 'cNV5hLKhvNY',
-  'pehla nasha': 'n8Y8bV9zH9o',
-  'dheere dheere se': 'h4f4P2xZ3e4',
-  'kuch kuch hota hai': 'clw9Jv1K_pI',
-  'tip tip barsa': 'h3h1q-P5k1Q',
-  'chura ke dil mera': '78q2fKzH6-I',
-  'dil hai ki manta nahin': 'wV2zE26FkPQ',
-  'baazigar o baazigar': '1M4yFqW-vQo',
-  'tanha tanha': '1G2H73K41t4',
+  'tujhe dekha toh': 'cNV5hLSa9H8',
+  'pehla nasha': 'ODu7OyAqK-Q',
+  'dheere dheere se': 'KeyfUuXPOcY',
+  'kuch kuch hota hai': 'bKZTnnFU9HA',
+  'tip tip barsa': 'BtlnpBb4O8E',
+  'chura ke dil mera': 'Yqj1_V90KJo',
+  'dil hai ki manta nahin': 'C9efe0rjDlE',
+  'baazigar o baazigar': 'PUO7_Gi6ipg',
+  'tanha tanha': 'CKXG45s96m8',
   // 90s Global Hits
   'i want it that way': '4fndeDfaWCg',
   'wonderwall': '6hzrDeceEKc',
   'baby one more time': 'C-u5WLJ9Yk4',
   'wannabe': 'gJLIiF15wjQ',
   'black or white': 'F2AitTPI5U0',
+  // Gym Motivation & Mega Anthems
+  'believer': '7wtfhZwyrcc',
+  'unstoppable': 'cxjvTXo9WWM',
+  'channa mereya': 'bzSTpdcs-EI',
+  'raanjhanaa': 'rSSx1tEKci8',
+  'mungaru male': 'nlsLKA6hlVQ',
+  'anisa bide': 'nlsLKA6hlVQ',
+  'bad newz': 'LK7-_dgAVQE',
+  'animal': 'HrnrqYxYrbk',
+  'till i collapse': 'Pi3_Zs-oRUo',
+  'eye of the tiger': 'btPJPFnesV4',
 };
 
 // Known placeholder mock strings that are invalid on YouTube and must be re-resolved
@@ -452,6 +503,20 @@ const INVALID_MOCK_IDS = new Set([
   'PZ2Q7oM-NfI', 'hW4VnUe4d-4', 'M_b8jU1uEPo', 'v50h9bZ5m0Y', 'wYkZzC9W-gQ',
   'qL5_5vW_Cqo', 'CY8E6N5NeyA', 'z5O7_e7oXbM', 'mE6L4b8oZ_s',
   '79y7R_l_R5M', '0z5h0x_zOq4', 'N-zX05hW8lE', 'GZ3zL7kT6_c', 'jA1Nf-qOq4w',
+  // Discovered 404/broken catalog IDs
+  'SQnc1Q3n26E', 'bpOSxM0zyN8', 'aezstBMeqV8', '1bZsVfA0_F4', 'NY8IS0ss-zk',
+  'cE6wxJpnukU', '4kLhO7x5N1E', 'ny9e4L8P-pQ', 'p8Q_3f_J4nI', 'Y1H0aI7u_1c',
+  'J6zVv8d7_kQ', '8qSka3rP6rI', 'jG6Q_xQ-iI0', 'qB_qW3O6f3w', 'k0Q4_w9N9qg',
+  '0WbMM431U0o', 'M29x1W8r7E8', 'VAdGW7QDJUI', '2ENXZq5hJyo', 'VuG7FT97Q74',
+  'gvy8eN6Hn_4', 'dLwS03n0zQY', 'cNV5hLKhvNY', 'n8Y8bV9zH9o', 'clw9Jv1K_pI',
+  'h3h1q-P5k1Q', '78q2fKzH6-I', 'wV2zE26FkPQ',
+  'd5gxXNtr7Hg', 'VF-FGy_KGvo', '1K_47K-4kHQ', 'E07s5ZYygmg', 'LDY_Xyx3WbE',
+  'r0XzQ3G3sI8', 'kPa7bsKwL-8', 't7bQwdJ-TBU', '4QIZk-UqU_8', 'To2SKUKjufM',
+  '4o2zT9d2-m4', 'vV0uO1dK8kM', '0WbMM431UOo', 'qK8l1D_8s9I', 'GvAfl9QG8Q4',
+  '8B7HgG_d8aU', 'PQmrmVs10X8', 'j7_lSP8VC3o', '2u_1V8Q2iXg', 'BNfAf4ToGSE',
+  'f7QeT4a1mX8', 'kfgWd7L8iio', 'h4f4P2xZ3e4', '9r_e2NWupmE', 'mK_P5N8m4_c',
+  'jF_0dG4kM6s', 'x4n2B-nO_dE', '1M4yFqW-vQo', '1G2H73K41t4', 'cxjvTXo9WBU',
+  '284VoJQs430', 'OsMyV0etwfE', '2f4m6P2pY0A', '_1xXYeNrW9k'
 ]);
 
 const resolvedVideoCache = new Map<string, string>();
@@ -505,7 +570,7 @@ export async function resolveFullSong(track: {
   // 1. Authoritative check: match verified known hits by song title first
   const cleanTitle = (track.title || '').toLowerCase().trim();
   for (const [key, ytid] of Object.entries(KNOWN_YOUTUBE_HITS)) {
-    if (cleanTitle.includes(key)) {
+    if (cleanTitle.includes(key) && !INVALID_MOCK_IDS.has(ytid)) {
       resolvedVideoCache.set(cacheKey, ytid);
       return ytid;
     }
@@ -513,7 +578,10 @@ export async function resolveFullSong(track: {
 
   // 2. Check memory cache for instant lookup
   if (resolvedVideoCache.has(cacheKey)) {
-    return resolvedVideoCache.get(cacheKey)!;
+    const cached = resolvedVideoCache.get(cacheKey)!;
+    if (!INVALID_MOCK_IDS.has(cached)) {
+      return cached;
+    }
   }
 
   // 3. If valid youtubeId already present on track and not an invalid mock string
@@ -532,6 +600,14 @@ export async function resolveFullSong(track: {
         resolvedVideoCache.set(cacheKey, data.videoId);
         return data.videoId;
       }
+      if (data && Array.isArray(data.candidates)) {
+        for (const cand of data.candidates) {
+          if (cand && !INVALID_MOCK_IDS.has(cand)) {
+            resolvedVideoCache.set(cacheKey, cand);
+            return cand;
+          }
+        }
+      }
     }
   } catch (err) {
     console.warn('Backend YouTube resolver notice:', err);
@@ -546,7 +622,8 @@ export async function resolveFullSong(track: {
  */
 export async function searchFullMusicAnywhere(
   query: string,
-  limit = 15
+  limit = 35,
+  page = 1
 ): Promise<IndieTrack[]> {
   const clean = query.trim();
   if (!clean) return [];
@@ -584,9 +661,11 @@ export async function searchFullMusicAnywhere(
     } catch {}
   }
 
-  // 2. Try server-side full music search endpoint
+  // 2. Try server-side full music search endpoint (unlimited full songs & albums)
   try {
-    const res = await fetch(`/api/search-full-music?q=${encodeURIComponent(clean)}&limit=${limit}`);
+    const res = await fetch(
+      `/api/search-full-music?q=${encodeURIComponent(clean)}&limit=${limit}&page=${page}`
+    );
     if (res.ok) {
       const data = await res.json();
       if (data.results && data.results.length > 0) {

@@ -6,7 +6,10 @@
 import React, { useEffect, useRef } from 'react';
 import * as d3 from 'd3';
 import { audioEngine } from '../services/audioEngine';
+import type { VisualizerPalette } from '../utils/visualizerVibe';
+import { applySpectrumBarBeatPulse } from '../utils/beatPulse';
 
+export type { VisualizerPalette };
 export type VisualizerMode = 'bars' | 'wave' | 'radial' | 'particles';
 export type VisualizerTheme = 'emerald' | 'sunset' | 'cyber' | 'amber';
 
@@ -15,7 +18,14 @@ export interface D3AudioVisualizerProps {
   variant?: 'compact' | 'expanded';
   mode?: VisualizerMode;
   theme?: VisualizerTheme;
+  customPalette?: VisualizerPalette;
+  speedMultiplier?: number; // 0.45 to 2.1
   sensitivity?: number; // 0.5 to 2.5
+  bpm?: number;
+  beatPulseEnabled?: boolean;
+  energy?: number;
+  melancholy?: number;
+  beatOriginRef?: React.RefObject<number>;
   className?: string;
   onClick?: () => void;
   width?: number;
@@ -24,14 +34,8 @@ export interface D3AudioVisualizerProps {
 
 export const THEME_CONFIGS: Record<
   VisualizerTheme,
-  {
-    name: string;
-    primary: string;
-    secondary: string;
-    tertiary: string;
-    glow: string;
+  VisualizerPalette & {
     accentClass: string;
-    gradientId: string;
   }
 > = {
   emerald: {
@@ -72,12 +76,76 @@ export const THEME_CONFIGS: Record<
   },
 };
 
+function upsertPaletteGradients(
+  defs: d3.Selection<SVGDefsElement, unknown, null, undefined>,
+  palette: VisualizerPalette
+) {
+  let grad = defs.select<SVGLinearGradientElement>(`#${palette.gradientId}`);
+  if (grad.empty()) {
+    grad = defs
+      .append('linearGradient')
+      .attr('id', palette.gradientId)
+      .attr('x1', '0%')
+      .attr('y1', '100%')
+      .attr('x2', '0%')
+      .attr('y2', '0%');
+  }
+  const linearStops = [
+    { offset: '0%', color: palette.tertiary, opacity: 0.85 },
+    { offset: '50%', color: palette.secondary, opacity: 0.95 },
+    { offset: '100%', color: palette.primary, opacity: 1 },
+  ];
+  const stops = grad.selectAll<SVGStopElement, (typeof linearStops)[number]>('stop').data(linearStops);
+  stops
+    .enter()
+    .append('stop')
+    .merge(stops)
+    .attr('offset', (d) => d.offset)
+    .attr('stop-color', (d) => d.color)
+    .attr('stop-opacity', (d) => d.opacity);
+  stops.exit().remove();
+
+  const radialId = `${palette.gradientId}-radial`;
+  let radialGrad = defs.select<SVGRadialGradientElement>(`#${radialId}`);
+  if (radialGrad.empty()) {
+    radialGrad = defs
+      .append('radialGradient')
+      .attr('id', radialId)
+      .attr('cx', '50%')
+      .attr('cy', '50%')
+      .attr('r', '50%');
+  }
+  const radialStops = [
+    { offset: '0%', color: palette.primary, opacity: 1 },
+    { offset: '70%', color: palette.secondary, opacity: 0.8 },
+    { offset: '100%', color: palette.tertiary, opacity: 0.2 },
+  ];
+  const rStops = radialGrad
+    .selectAll<SVGStopElement, (typeof radialStops)[number]>('stop')
+    .data(radialStops);
+  rStops
+    .enter()
+    .append('stop')
+    .merge(rStops)
+    .attr('offset', (d) => d.offset)
+    .attr('stop-color', (d) => d.color)
+    .attr('stop-opacity', (d) => d.opacity);
+  rStops.exit().remove();
+}
+
 export const D3AudioVisualizer: React.FC<D3AudioVisualizerProps> = ({
   isPlaying,
   variant = 'compact',
   mode = 'bars',
   theme = 'emerald',
+  customPalette,
+  speedMultiplier = 1.0,
   sensitivity = 1.0,
+  bpm,
+  beatPulseEnabled = false,
+  energy = 0.5,
+  melancholy = 0.5,
+  beatOriginRef,
   className = '',
   onClick,
   width: customWidth,
@@ -87,43 +155,83 @@ export const D3AudioVisualizer: React.FC<D3AudioVisualizerProps> = ({
   const svgRef = useRef<SVGSVGElement | null>(null);
   const animFrameRef = useRef<number | null>(null);
   const peaksRef = useRef<number[]>([]);
+  const phaseRef = useRef<number>(0);
+  const sizeRef = useRef<{ w: number; h: number }>({
+    w: customWidth || (variant === 'compact' ? 100 : 600),
+    h: customHeight || (variant === 'compact' ? 28 : 280),
+  });
 
   const isCompact = variant === 'compact';
   const defaultHeight = isCompact ? 28 : 280;
   const defaultWidth = isCompact ? 100 : 600;
+
+  const activePalette: VisualizerPalette = customPalette || THEME_CONFIGS[theme] || THEME_CONFIGS.emerald;
+  const clampedSpeed = Math.max(0.35, Math.min(2.4, Number.isFinite(speedMultiplier) ? speedMultiplier : 1.0));
+
+  // Track container dimensions cleanly via ResizeObserver instead of per-frame layout reads
+  useEffect(() => {
+    const updateDimensions = () => {
+      const rect = containerRef.current?.getBoundingClientRect();
+      const w = customWidth || (rect?.width && rect.width > 20 ? rect.width : defaultWidth);
+      const h = customHeight || (rect?.height && rect.height > 10 ? rect.height : defaultHeight);
+      sizeRef.current = { w, h };
+      if (svgRef.current) {
+        d3.select(svgRef.current)
+          .attr('width', w)
+          .attr('height', h)
+          .attr('viewBox', `0 0 ${w} ${h}`);
+      }
+    };
+
+    updateDimensions();
+
+    if (typeof ResizeObserver !== 'undefined' && containerRef.current) {
+      const observer = new ResizeObserver(updateDimensions);
+      observer.observe(containerRef.current);
+      return () => observer.disconnect();
+    }
+    return undefined;
+  }, [customWidth, customHeight, defaultWidth, defaultHeight]);
 
   useEffect(() => {
     const svgEl = svgRef.current;
     if (!svgEl) return;
 
     const svg = d3.select(svgEl);
-    const themeConf = THEME_CONFIGS[theme] || THEME_CONFIGS.emerald;
+    svg
+      .attr('width', sizeRef.current.w)
+      .attr('height', sizeRef.current.h)
+      .attr('viewBox', `0 0 ${sizeRef.current.w} ${sizeRef.current.h}`);
 
-    // Build or update SVG defs for gradients and glow filter
+    // Build or update SVG defs for glow filter and gradients
     let defs = svg.select<SVGDefsElement>('defs');
     if (defs.empty()) {
       defs = svg.append('defs');
 
       // Glow filter
-      const filter = defs.append('filter').attr('id', 'd3-glow').attr('x', '-30%').attr('y', '-30%').attr('width', '160%').attr('height', '160%');
-      filter.append('feGaussianBlur').attr('stdDeviation', isCompact ? '1.5' : '3.5').attr('result', 'coloredBlur');
+      const filter = defs
+        .append('filter')
+        .attr('id', 'd3-glow')
+        .attr('x', '-30%')
+        .attr('y', '-30%')
+        .attr('width', '160%')
+        .attr('height', '160%');
+      filter
+        .append('feGaussianBlur')
+        .attr('stdDeviation', isCompact ? '1.5' : '3.5')
+        .attr('result', 'coloredBlur');
       const feMerge = filter.append('feMerge');
       feMerge.append('feMergeNode').attr('in', 'coloredBlur');
       feMerge.append('feMergeNode').attr('in', 'SourceGraphic');
 
-      // Gradients
+      // Static preset gradients
       Object.values(THEME_CONFIGS).forEach((cfg) => {
-        const grad = defs.append('linearGradient').attr('id', cfg.gradientId).attr('x1', '0%').attr('y1', '100%').attr('x2', '0%').attr('y2', '0%');
-        grad.append('stop').attr('offset', '0%').attr('stop-color', cfg.tertiary).attr('stop-opacity', 0.85);
-        grad.append('stop').attr('offset', '50%').attr('stop-color', cfg.secondary).attr('stop-opacity', 0.95);
-        grad.append('stop').attr('offset', '100%').attr('stop-color', cfg.primary).attr('stop-opacity', 1);
-
-        const radialGrad = defs.append('radialGradient').attr('id', `${cfg.gradientId}-radial`).attr('cx', '50%').attr('cy', '50%').attr('r', '50%');
-        radialGrad.append('stop').attr('offset', '0%').attr('stop-color', cfg.primary).attr('stop-opacity', 1);
-        radialGrad.append('stop').attr('offset', '70%').attr('stop-color', cfg.secondary).attr('stop-opacity', 0.8);
-        radialGrad.append('stop').attr('offset', '100%').attr('stop-color', cfg.tertiary).attr('stop-opacity', 0.2);
+        upsertPaletteGradients(defs, cfg);
       });
     }
+
+    // Always sync active palette stops (crucial for dynamic track vibe palettes)
+    upsertPaletteGradients(defs, activePalette);
 
     // Main content group
     let mainGroup = svg.select<SVGGElement>('g.visualizer-content');
@@ -131,16 +239,29 @@ export const D3AudioVisualizer: React.FC<D3AudioVisualizerProps> = ({
       mainGroup = svg.append('g').attr('class', 'visualizer-content');
     }
 
-    let frameCount = 0;
+    const prefersReducedMotion =
+      typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const motionFactor = prefersReducedMotion ? 0.25 : 1.0;
+    const peakDecayBase = (isCompact ? 3.5 : 2.5) * Math.max(0.55, 0.55 + clampedSpeed * 0.5);
 
-    const renderFrame = () => {
-      frameCount++;
-      const currentContainer = containerRef.current;
-      const rect = currentContainer?.getBoundingClientRect();
-      const w = customWidth || (rect?.width && rect.width > 20 ? rect.width : defaultWidth);
-      const h = customHeight || (rect?.height && rect.height > 10 ? rect.height : defaultHeight);
+    let lastRenderTs = 0;
 
-      svg.attr('width', w).attr('height', h).attr('viewBox', `0 0 ${w} ${h}`);
+    const renderFrame = (ts: number) => {
+      // Cap SVG DOM mutations to ~30fps so mobile & headless CPU compositors stay responsive
+      if (lastRenderTs !== 0 && ts - lastRenderTs < 32) {
+        animFrameRef.current = requestAnimationFrame(renderFrame);
+        return;
+      }
+
+      const deltaFrames = lastRenderTs === 0 ? 1 : Math.min(4, (ts - lastRenderTs) / 16.67);
+      lastRenderTs = ts;
+
+      phaseRef.current += clampedSpeed * motionFactor * deltaFrames;
+      const phase = phaseRef.current;
+
+      const { w, h } = sizeRef.current;
 
       // Fetch live frequency data from Web Audio Engine
       const rawData = audioEngine.getByteFrequencyData();
@@ -148,39 +269,77 @@ export const D3AudioVisualizer: React.FC<D3AudioVisualizerProps> = ({
       const binStep = Math.max(1, Math.floor(rawData.length / numBins));
 
       const freqData: number[] = [];
+      const barPulseEnvelopes: number[] = [];
+      const useBarBeatSync = Boolean(
+        mode === 'bars' && beatPulseEnabled && typeof bpm === 'number' && bpm > 0 && isPlaying
+      );
+      const originMs = beatOriginRef?.current ?? 0;
+      const elapsedBeatMs = Math.max(0, ts - originMs);
+
       for (let i = 0; i < numBins; i++) {
         const rawVal = rawData[i * binStep] || 0;
         let scaledVal = rawVal * sensitivity;
 
         if (!isPlaying) {
-          // Subtle resting breathing wave when paused
-          scaledVal = Math.sin(frameCount * 0.05 + i * 0.3) * 6 + 10;
+          // Subtle resting breathing wave scaled by the track's sonic speed
+          const wavePrimary = Math.sin(phase * 0.055 + i * 0.3) * (6 + clampedSpeed * 4);
+          const waveHarmonic = Math.cos(phase * 0.032 - i * 0.18) * 4;
+          scaledVal = 14 + wavePrimary + waveHarmonic;
+          barPulseEnvelopes.push(0);
+        } else if (useBarBeatSync && bpm) {
+          const synced = applySpectrumBarBeatPulse({
+            baseValue: scaledVal,
+            barIndex: i,
+            totalBars: numBins,
+            elapsedMs: elapsedBeatMs,
+            bpm,
+            energy,
+            melancholy,
+            sensitivity,
+            isPlaying,
+            enabled: beatPulseEnabled,
+            prefersReducedMotion,
+          });
+          scaledVal = synced.value;
+          barPulseEnvelopes.push(synced.secondaryEnvelope);
+        } else {
+          barPulseEnvelopes.push(0);
         }
 
         freqData.push(Math.min(255, Math.max(0, scaledVal)));
       }
 
-      // Maintain peak tracking for bars
+      // Maintain peak tracking for bars (decay speed adapts to track vibe)
       if (peaksRef.current.length !== freqData.length) {
         peaksRef.current = new Array(freqData.length).fill(0);
       }
+      const peakDecayStep = peakDecayBase * deltaFrames;
       for (let i = 0; i < freqData.length; i++) {
         if (freqData[i] > peaksRef.current[i]) {
           peaksRef.current[i] = freqData[i];
         } else {
-          peaksRef.current[i] = Math.max(0, peaksRef.current[i] - (isCompact ? 3.5 : 2.5));
+          peaksRef.current[i] = Math.max(0, peaksRef.current[i] - peakDecayStep);
         }
       }
 
       // Render based on chosen mode using D3
       if (mode === 'bars') {
-        renderBars(mainGroup, freqData, peaksRef.current, w, h, themeConf, isCompact);
+        renderBars(
+          mainGroup,
+          freqData,
+          peaksRef.current,
+          barPulseEnvelopes,
+          w,
+          h,
+          activePalette,
+          isCompact
+        );
       } else if (mode === 'wave') {
-        renderWave(mainGroup, freqData, w, h, themeConf, isCompact, frameCount);
+        renderWave(mainGroup, freqData, w, h, activePalette, isCompact, phase, clampedSpeed);
       } else if (mode === 'radial') {
-        renderRadial(mainGroup, freqData, w, h, themeConf, isCompact, frameCount);
+        renderRadial(mainGroup, freqData, w, h, activePalette, isCompact, phase);
       } else if (mode === 'particles') {
-        renderParticles(mainGroup, freqData, w, h, themeConf, isCompact, frameCount);
+        renderParticles(mainGroup, freqData, w, h, activePalette, isCompact, phase);
       }
 
       animFrameRef.current = requestAnimationFrame(renderFrame);
@@ -193,12 +352,35 @@ export const D3AudioVisualizer: React.FC<D3AudioVisualizerProps> = ({
         cancelAnimationFrame(animFrameRef.current);
       }
     };
-  }, [isPlaying, variant, mode, theme, sensitivity, customWidth, customHeight]);
+  }, [
+    isPlaying,
+    variant,
+    mode,
+    activePalette.gradientId,
+    activePalette.primary,
+    activePalette.secondary,
+    activePalette.tertiary,
+    clampedSpeed,
+    sensitivity,
+    bpm,
+    beatPulseEnabled,
+    energy,
+    melancholy,
+    beatOriginRef,
+    customWidth,
+    customHeight,
+  ]);
 
   return (
     <div
       ref={containerRef}
       onClick={onClick}
+      data-testid="d3-audio-visualizer"
+      data-palette-primary={activePalette.primary}
+      data-palette-secondary={activePalette.secondary}
+      data-speed={clampedSpeed.toFixed(2)}
+      data-bpm={typeof bpm === 'number' && bpm > 0 ? Math.round(bpm) : undefined}
+      data-bar-beat-sync={String(Boolean(mode === 'bars' && beatPulseEnabled && bpm))}
       className={`relative select-none overflow-hidden flex items-center justify-center ${
         onClick ? 'cursor-pointer group' : ''
       } ${className}`}
@@ -207,7 +389,7 @@ export const D3AudioVisualizer: React.FC<D3AudioVisualizerProps> = ({
         height: customHeight ? `${customHeight}px` : `${defaultHeight}px`,
       }}
       role="img"
-      aria-label="Real-time D3 Audio Visualizer"
+      aria-label={`Real-time D3 Audio Visualizer (${activePalette.name}, ${clampedSpeed.toFixed(2)}x speed)`}
     >
       <svg
         ref={svgRef}
@@ -221,14 +403,15 @@ export const D3AudioVisualizer: React.FC<D3AudioVisualizerProps> = ({
 // D3 Rendering Sub-routines
 // -----------------------------------------------------------------------------
 
-/** 1. Equalizer Bars with peak markers using D3 scales & data-binding */
+/** 1. Equalizer Bars with peak markers and secondary BPM beat-pulse emphasis */
 function renderBars(
   group: d3.Selection<SVGGElement, unknown, null, undefined>,
   data: number[],
   peaks: number[],
+  pulseEnvelopes: number[],
   width: number,
   height: number,
-  theme: typeof THEME_CONFIGS['emerald'],
+  theme: VisualizerPalette,
   isCompact: boolean
 ) {
   const margin = isCompact ? 1 : 2;
@@ -257,6 +440,10 @@ function renderBars(
     .attr('y', (d) => height - Math.max(isCompact ? 2 : 4, yScale(d)))
     .attr('height', (d) => Math.max(isCompact ? 2 : 4, yScale(d)))
     .attr('fill', `url(#${theme.gradientId})`)
+    .attr('opacity', (_d, i) => {
+      const env = pulseEnvelopes[i] || 0;
+      return isCompact ? 0.95 : Number(Math.min(1, 0.78 + env * 0.22).toFixed(2));
+    })
     .attr('filter', isCompact ? null : 'url(#d3-glow)');
 
   bars.exit().remove();
@@ -269,14 +456,14 @@ function renderBars(
       .enter()
       .append('rect')
       .attr('class', 'peak')
-      .attr('height', 2)
       .attr('rx', 1)
       .merge(peakCaps)
       .attr('x', (_d, i) => i * (barWidth + margin))
       .attr('width', barWidth)
+      .attr('height', (_p, i) => ((pulseEnvelopes[i] || 0) > 0.5 ? 2.8 : 2))
       .attr('y', (p) => Math.max(2, height - yScale(p) - 4))
       .attr('fill', theme.primary)
-      .attr('opacity', 0.9);
+      .attr('opacity', (_p, i) => Number(Math.min(1, 0.75 + (pulseEnvelopes[i] || 0) * 0.25).toFixed(2)));
 
     peakCaps.exit().remove();
   } else {
@@ -290,9 +477,10 @@ function renderWave(
   data: number[],
   width: number,
   height: number,
-  theme: typeof THEME_CONFIGS['emerald'],
+  theme: VisualizerPalette,
   isCompact: boolean,
-  _frameCount: number
+  phase: number,
+  speedMultiplier: number
 ) {
   group.selectAll('rect').remove();
   group.selectAll('circle.particle').remove();
@@ -302,34 +490,36 @@ function renderWave(
   const xScale = d3.scaleLinear().domain([0, data.length - 1]).range([0, width]);
   const centerY = height * 0.6;
   const maxAmp = isCompact ? height * 0.45 : height * 0.55;
+  const rippleDepth = isCompact ? 1.5 : 5 + speedMultiplier * 3.5;
+
+  const waveY = (d: number, i: number) => {
+    const amp = (d / 255) * maxAmp;
+    const ripple = Math.sin(phase * 0.065 + i * 0.28) * rippleDepth;
+    return Math.max(4, Math.min(height - 6, centerY - amp + ripple));
+  };
 
   // D3 Area & Line Generators
   const areaGen = d3
     .area<number>()
     .x((_d, i) => xScale(i))
     .y0(height)
-    .y1((d) => {
-      const amp = (d / 255) * maxAmp;
-      return Math.max(4, centerY - amp);
-    })
+    .y1((d, i) => waveY(d, i))
     .curve(d3.curveCatmullRom.alpha(0.5));
 
   const lineGen = d3
     .line<number>()
     .x((_d, i) => xScale(i))
-    .y((d) => {
-      const amp = (d / 255) * maxAmp;
-      return Math.max(4, centerY - amp);
-    })
+    .y((d, i) => waveY(d, i))
     .curve(d3.curveCatmullRom.alpha(0.5));
 
   // Mirror line generator for audio symmetry
   const mirrorLineGen = d3
     .line<number>()
     .x((_d, i) => xScale(i))
-    .y((d) => {
+    .y((d, i) => {
       const amp = (d / 255) * maxAmp * 0.45;
-      return Math.min(height - 2, centerY + amp);
+      const counterRipple = Math.cos(phase * 0.055 + i * 0.25) * (rippleDepth * 0.5);
+      return Math.min(height - 2, centerY + amp + counterRipple);
     })
     .curve(d3.curveCatmullRom.alpha(0.5));
 
@@ -380,9 +570,9 @@ function renderRadial(
   data: number[],
   width: number,
   height: number,
-  theme: typeof THEME_CONFIGS['emerald'],
+  theme: VisualizerPalette,
   isCompact: boolean,
-  frameCount: number
+  phase: number
 ) {
   group.selectAll('rect').remove();
   group.selectAll('path.wave-area').remove();
@@ -395,8 +585,8 @@ function renderRadial(
   const baseRadius = Math.min(width, height) * (isCompact ? 0.22 : 0.24);
   const maxRayLen = Math.min(width, height) * (isCompact ? 0.24 : 0.26);
 
-  // Slow hypnotic rotation
-  const rotationOffset = (frameCount * 0.4) * (Math.PI / 180);
+  // Rotation velocity driven by sonic phase
+  const rotationOffset = (phase * 0.45) * (Math.PI / 180);
   const angleStep = (Math.PI * 2) / data.length;
 
   // Center core circle
@@ -453,9 +643,9 @@ function renderParticles(
   data: number[],
   width: number,
   height: number,
-  theme: typeof THEME_CONFIGS['emerald'],
+  theme: VisualizerPalette,
   isCompact: boolean,
-  frameCount: number
+  phase: number
 ) {
   group.selectAll('rect').remove();
   group.selectAll('path').remove();
@@ -472,9 +662,12 @@ function renderParticles(
     .append('circle')
     .attr('class', 'particle')
     .merge(circles)
-    .attr('cx', (_d, i) => xScale(i))
+    .attr('cx', (_d, i) => {
+      const driftX = Math.cos(phase * 0.045 + i * 0.4) * (isCompact ? 1.5 : 6);
+      return xScale(i) + driftX;
+    })
     .attr('cy', (d, i) => {
-      const floatOffset = Math.sin(frameCount * 0.08 + i * 0.5) * (isCompact ? 4 : 12);
+      const floatOffset = Math.sin(phase * 0.08 + i * 0.5) * (isCompact ? 4 : 12);
       const yOffset = ((d / 255) * (height * 0.4) - (height * 0.2)) * (i % 2 === 0 ? 1 : -1);
       return centerY + yOffset + floatOffset;
     })

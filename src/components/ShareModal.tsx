@@ -89,7 +89,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
     : {
         payloadStr: '',
         shareUrl: `${window.location.origin}/?playlist=${playlist?.id}`,
-        summaryText: `Check out this indie playlist "${playlist?.title}" on IndieWave!`,
+        summaryText: `Check out this playlist "${playlist?.title}" on Apna Music!`,
       };
 
   const soundwaveHeights = [
@@ -219,7 +219,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                     <p className="text-sm text-neutral-300 truncate">{subtitle}</p>
                     <p className="text-[11px] text-neutral-400 mt-1 flex items-center gap-1">
                       <Sparkles className="w-3 h-3 text-[#1ed760]" />
-                      IndieWave Verified Gem
+                      Apna Music Verified
                     </p>
                   </div>
                 </div>
@@ -363,7 +363,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
           {activeTab === 'embed' && (
             <div className="space-y-4">
               <p className="text-sm text-neutral-300">
-                Embed this mini IndieWave player card directly into your blog, portfolio, or Notion page:
+                Embed this mini Apna Music player card directly into your blog, portfolio, or Notion page:
               </p>
               <div className="bg-black/50 border border-white/10 rounded-xl p-4 font-mono text-xs text-neutral-300 overflow-x-auto">
                 {`<iframe src="${shareInfo.shareUrl}" width="100%" height="152" frameBorder="0" allow="autoplay; clipboard-write; encrypted-media; fullscreen" loading="lazy"></iframe>`}

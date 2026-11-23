@@ -670,7 +670,7 @@ export const INITIAL_TRACKS: IndieTrack[] = [
   },
   {
     "id": "new-trk-2",
-    "youtubeId": "k0Q4_w9N9qg",
+    "youtubeId": "KEG7b851Ric",
     "fullSongAvailable": true,
     "title": "Taste",
     "artist": "Sabrina Carpenter",
@@ -832,7 +832,7 @@ export const INITIAL_TRACKS: IndieTrack[] = [
   },
   {
     "id": "new-trk-8",
-    "youtubeId": "GZ3zL7kT6_c",
+    "youtubeId": "9gWIIIr2Asw",
     "fullSongAvailable": true,
     "title": "Lose Control",
     "artist": "Teddy Swims",
@@ -1455,7 +1455,7 @@ export const INITIAL_TRACKS: IndieTrack[] = [
   },
   {
     id: 'sp-trk-8',
-    youtubeId: 'SQnc1Q3n26E',
+    youtubeId: 'MSRcC626prw',
     fullSongAvailable: true,
     title: 'Kill Bill',
     artist: 'SZA',
@@ -1499,7 +1499,7 @@ export const INITIAL_TRACKS: IndieTrack[] = [
   },
   {
     id: 'sp-trk-10',
-    youtubeId: 'bpOSxM0zyN8',
+    youtubeId: 'bpOSxM0rNPM',
     fullSongAvailable: true,
     title: 'Do I Wanna Know?',
     artist: 'Arctic Monkeys',
@@ -1565,7 +1565,7 @@ export const INITIAL_TRACKS: IndieTrack[] = [
   },
   {
     id: 'sp-trk-13',
-    youtubeId: 'aezstBMeqV8',
+    youtubeId: 'NTpbbQUBbuo',
     fullSongAvailable: true,
     title: 'Too Sweet',
     artist: 'Hozier',
@@ -1609,7 +1609,7 @@ export const INITIAL_TRACKS: IndieTrack[] = [
   },
   {
     id: 'sp-trk-15',
-    youtubeId: '1bZsVfA0_F4',
+    youtubeId: '1K_47K-4kHQ',
     fullSongAvailable: true,
     title: 'Good Luck, Babe!',
     artist: 'Chappell Roan',
@@ -1741,7 +1741,7 @@ export const INITIAL_TRACKS: IndieTrack[] = [
   },
   {
     id: 'sp-trk-21',
-    youtubeId: 'NY8IS0ss-zk',
+    youtubeId: 'lZMQpP0cf9A',
     fullSongAvailable: true,
     title: 'Chamber Of Reflection',
     artist: 'Mac DeMarco',
@@ -1785,7 +1785,7 @@ export const INITIAL_TRACKS: IndieTrack[] = [
   },
   {
     id: 'sp-trk-23',
-    youtubeId: 'cE6wxJpnukU',
+    youtubeId: 'cE6wxDqdOV0',
     fullSongAvailable: true,
     title: 'Video Games',
     artist: 'Lana Del Rey',
@@ -2239,16 +2239,56 @@ export const INITIAL_PLAYLISTS: Playlist[] = [
     coverGradient: 'from-blue-600 via-indigo-900 to-black',
     coverEmoji: '🌍',
     trackIds: [
-      'sp-trk-1',  // Blinding Lights
-      'sp-trk-5',  // Birds of a feather
-      'sp-trk-12', // Espresso
-      'sp-trk-2',  // As It Was
-      'sp-trk-3',  // Cruel Summer
-      'sp-trk-10', // Do I Wanna Know
-      'sp-trk-6',  // Sunflower
-      'sp-trk-7',  // Levitating
-      'sp-trk-14', // HUMBLE.
-      'sp-trk-16', // Starboy
+      'new-trk-1',  // Die With A Smile - Lady Gaga & Bruno Mars
+      'sp-trk-1',   // Blinding Lights - The Weeknd
+      'sp-trk-5',   // BIRDS OF A FEATHER - Billie Eilish
+      'sp-trk-12',  // Espresso - Sabrina Carpenter
+      'new-trk-2',  // Taste - Sabrina Carpenter
+      'new-trk-3',  // Please Please Please - Sabrina Carpenter
+      'new-trk-4',  // Not Like Us - Kendrick Lamar
+      'new-trk-5',  // A Bar Song (Tipsy) - Shaboozey
+      'new-trk-6',  // Beautiful Things - Benson Boone
+      'new-trk-7',  // MILLION DOLLAR BABY - Tommy Richman
+      'new-trk-8',  // Lose Control - Teddy Swims
+      'new-trk-9',  // HOT TO GO! - Chappell Roan
+      'new-trk-10', // 360 - Charli xcx
+      'new-trk-11', // Apple - Charli xcx
+      'new-trk-12', // Dancing In The Flames - The Weeknd
+      'new-trk-13', // Timeless - The Weeknd & Playboi Carti
+      'new-trk-14', // I Had Some Help - Post Malone ft. Morgan Wallen
+      'new-trk-15', // LUNCH - Billie Eilish
+      'new-trk-16', // Fortnight - Taylor Swift ft. Post Malone
+      'new-trk-17', // I Can Do It With a Broken Heart - Taylor Swift
+      'new-trk-18', // we can't be friends - Ariana Grande
+      'new-trk-19', // greedy - Tate McRae
+      'new-trk-20', // Saturn - SZA
+      'new-trk-21', // I Love You, I'm Sorry - Gracie Abrams
+      'new-trk-22', // Houdini - Dua Lipa
+      'sp-trk-2',   // As It Was - Harry Styles
+      'sp-trk-3',   // Cruel Summer - Taylor Swift
+      'sp-trk-4',   // Flowers - Miley Cyrus
+      'sp-trk-6',   // Sunflower - Post Malone & Swae Lee
+      'sp-trk-7',   // Levitating - Dua Lipa
+      'sp-trk-8',   // Kill Bill - SZA
+      'sp-trk-9',   // Heat Waves - Glass Animals
+      'sp-trk-10',  // Do I Wanna Know? - Arctic Monkeys
+      'sp-trk-11',  // vampire - Olivia Rodrigo
+      'sp-trk-13',  // Too Sweet - Hozier
+      'sp-trk-14',  // HUMBLE. - Kendrick Lamar
+      'sp-trk-15',  // Good Luck, Babe! - Chappell Roan
+      'sp-trk-16',  // Starboy - The Weeknd ft. Daft Punk
+      'sp-trk-17',  // Get Lucky - Daft Punk ft. Pharrell Williams
+      'sp-trk-18',  // Dreams - Fleetwood Mac
+      'sp-trk-19',  // Smells Like Teen Spirit - Nirvana
+      'sp-trk-20',  // Bohemian Rhapsody - Queen
+      'sp-trk-21',  // Chamber Of Reflection - Mac DeMarco
+      'sp-trk-22',  // Pink + White - Frank Ocean
+      'sp-trk-23',  // Video Games - Lana Del Rey
+      'sp-trk-24',  // Yellow - Coldplay
+      'hn-trk-1',   // Kesariya - Arijit Singh
+      'hn-trk-3',   // Chaleya - Arijit Singh
+      'kn-trk-1',   // Singara Siriye - Vijay Prakash
+      'kn-trk-4',   // Belageddu - Vijay Prakash
     ],
     isPersonalized: false,
     createdAt: '2026-10-29',

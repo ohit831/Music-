@@ -3,23 +3,30 @@ import App from './App.tsx';
 import './index.css';
 import { registerSW } from 'virtual:pwa-register';
 
-// Auto-register service worker for Android PWA installability & offline caching
-try {
-  registerSW({ immediate: true });
-} catch (e) {
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js').catch(() => {});
+// Capture early beforeinstallprompt before React mounts so native install prompts are never missed
+declare global {
+  interface Window {
+    __deferredPWAInstallPrompt?: Event | null;
   }
 }
 
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.getRegistration().then((reg) => {
-      if (!reg) {
-        navigator.serviceWorker.register('/sw.js').catch(() => {});
-      }
-    });
+if (typeof window !== 'undefined') {
+  window.__deferredPWAInstallPrompt = window.__deferredPWAInstallPrompt ?? null;
+  window.addEventListener('beforeinstallprompt', (event) => {
+    event.preventDefault();
+    window.__deferredPWAInstallPrompt = event;
+  });
+  window.addEventListener('appinstalled', () => {
+    window.__deferredPWAInstallPrompt = null;
   });
 }
+
+// Single authoritative Service Worker registration managed by vite-plugin-pwa
+registerSW({
+  immediate: true,
+  onRegisterError(error) {
+    console.warn('Service worker registration failed:', error);
+  },
+});
 
 createRoot(document.getElementById('root')!).render(<App />);

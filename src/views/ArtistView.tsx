@@ -36,6 +36,7 @@ interface ArtistViewProps {
   downloadedTrackIds?: Set<string>;
   downloadingTrackIds?: Set<string>;
   onDownloadTrack?: (track: IndieTrack) => void;
+  onEditMetadata?: (track: IndieTrack) => void;
 }
 
 export const ArtistView: React.FC<ArtistViewProps> = ({
@@ -56,6 +57,7 @@ export const ArtistView: React.FC<ArtistViewProps> = ({
   downloadedTrackIds,
   downloadingTrackIds,
   onDownloadTrack,
+  onEditMetadata,
 }) => {
   const [isFollowing, setIsFollowing] = useState(false);
 
@@ -179,6 +181,7 @@ export const ArtistView: React.FC<ArtistViewProps> = ({
               onAddToQueue={onAddToQueue}
               userPlaylists={userPlaylists}
               onAddToPlaylist={onAddToPlaylist}
+              onEditMetadata={onEditMetadata}
             />
           ))}
         </div>

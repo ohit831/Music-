@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   INITIAL_TRACKS,
   INITIAL_PLAYLISTS,
@@ -23,7 +23,6 @@ import { audioEngine } from './services/audioEngine';
 // Components
 import { Sidebar, ActiveNavTab } from './components/Sidebar';
 import { PlayerBar } from './components/PlayerBar';
-import { FriendActivityBar } from './components/FriendActivityBar';
 import { ShareModal } from './components/ShareModal';
 import { PlaylistModal } from './components/PlaylistModal';
 import { LyricsDrawer } from './components/LyricsDrawer';
@@ -32,13 +31,35 @@ import { FullSongPlayer } from './components/FullSongPlayer';
 import { AddMusicModal } from './components/AddMusicModal';
 import { SettingsModal } from './components/SettingsModal';
 import { AndroidInstallModal } from './components/AndroidInstallModal';
+import { PWAInstallButton } from './components/PWAInstallButton';
+import { OfflineIndicator } from './components/OfflineIndicator';
 import { AndroidBottomNav } from './components/AndroidBottomNav';
-import { Smartphone, Search, Sliders, Radio } from 'lucide-react';
+import { AuthModal } from './components/AuthModal';
+import { UserProfileModal } from './components/UserProfileModal';
+import { EditMetadataModal } from './components/EditMetadataModal';
+import { Smartphone, Search, Sliders, Radio, Dumbbell, UserPlus, LogIn, Users } from 'lucide-react';
 import {
   loadPlaybackSettings,
   savePlaybackSettings,
   PlaybackSettings,
 } from './utils/playbackSettings';
+import { authService, UserProfile } from './services/authService';
+import { isOwnerUser } from './utils/loginAudit';
+import {
+  buildListingPlaylists,
+  getDefaultInitialTrack,
+  getPlaylistListingTracks,
+  loadActiveHomePlaylistId,
+  loadSavedPlaylists,
+  resolveActiveHomePlaylist,
+  saveActiveHomePlaylistId,
+  savePlaylistsToStorage,
+} from './utils/playlistListings';
+import {
+  PLAYLIST_JSON_QUERY_PARAM,
+  createPlaylistFromImport,
+  decodePlaylistJsonPayload,
+} from './utils/playlistJsonShare';
 
 // Views
 import { HomeView } from './views/HomeView';
@@ -48,34 +69,76 @@ import { PlaylistView } from './views/PlaylistView';
 import { ArtistView } from './views/ArtistView';
 import { SocialJamView } from './views/SocialJamView';
 import { LibraryView } from './views/LibraryView';
+import { AICuratorView } from './views/AICuratorView';
+import { listeningHistoryService } from './services/listeningHistoryService';
+import {
+  getPersonalizedNextTracks,
+  pickSmartNextTrack,
+} from './utils/smartRecommendations';
 import {
   getDownloadedTrackIds,
   downloadTrackWithProgress,
   removeDownload,
   clearAllDownloads,
 } from './utils/downloadManager';
+import { trackMetadataService } from './services/trackMetadataService';
+import {
+  applyTrackMetadataOverride,
+  applyTrackMetadataOverrides,
+  loadTrackMetadataOverrides,
+  restoreOriginalTrack,
+  TrackMetadataOverride,
+} from './utils/trackMetadata';
+import {
+  classifyShortcutTarget,
+  resolveGlobalMediaShortcut,
+} from './utils/keyboardShortcuts';
+import {
+  buildVibeMatchQueue,
+  computeSonicProfile,
+  describeSonicVibe,
+  scoreSonicSimilarity,
+  VibeMatchItem,
+} from './utils/vibeMatch';
 
 export default function App() {
   // App data state
-  const [tracks, setTracks] = useState<IndieTrack[]>(INITIAL_TRACKS);
-  const [playlists, setPlaylists] = useState<Playlist[]>(INITIAL_PLAYLISTS);
+  const [metadataOverrides, setMetadataOverrides] = useState<Record<string, TrackMetadataOverride>>(
+    () => loadTrackMetadataOverrides()
+  );
+  const [tracks, setTracks] = useState<IndieTrack[]>(() =>
+    applyTrackMetadataOverrides(INITIAL_TRACKS, loadTrackMetadataOverrides())
+  );
+  const [playlists, setPlaylists] = useState<Playlist[]>(() => loadSavedPlaylists(INITIAL_PLAYLISTS));
   const [artists] = useState<IndieArtist[]>(INITIAL_ARTISTS);
   const [friendActivities, setFriendActivities] = useState<FriendActivity[]>(INITIAL_FRIEND_ACTIVITY);
   const [reviews] = useState(INITIAL_REVIEWS);
 
   // Playback state
-  const [currentTrack, setCurrentTrack] = useState<IndieTrack | null>(INITIAL_TRACKS[0]);
+  const [likedTrackIds, setLikedTrackIds] = useState<Set<string>>(
+    new Set(['trk-1', 'trk-2', 'trk-4'])
+  );
+  const [activeHomePlaylistId, setActiveHomePlaylistId] = useState<string | null>(() =>
+    loadActiveHomePlaylistId()
+  );
+  const initialDefaultTrack = useMemo(() => {
+    const initialList = applyTrackMetadataOverrides(INITIAL_TRACKS, loadTrackMetadataOverrides());
+    return getDefaultInitialTrack(
+      loadSavedPlaylists(INITIAL_PLAYLISTS),
+      initialList,
+      new Set(['trk-1', 'trk-2', 'trk-4']),
+      loadActiveHomePlaylistId()
+    );
+  }, []);
+  const [currentTrack, setCurrentTrack] = useState<IndieTrack | null>(initialDefaultTrack);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(INITIAL_TRACKS[0].duration);
+  const [duration, setDuration] = useState(initialDefaultTrack?.duration || 210);
   const [volume, setVolume] = useState(0.75);
   const [isMuted, setIsMuted] = useState(false);
   const [isShuffle, setIsShuffle] = useState(false);
   const [repeatMode, setRepeatMode] = useState<'off' | 'all' | 'one'>('off');
   const [queue, setQueue] = useState<IndieTrack[]>([]);
-  const [likedTrackIds, setLikedTrackIds] = useState<Set<string>>(
-    new Set(['trk-1', 'trk-2', 'trk-4'])
-  );
 
   // Downloaded tracks state & synchronization
   const [downloadedTrackIds, setDownloadedTrackIds] = useState<Set<string>>(() => new Set(getDownloadedTrackIds()));
@@ -116,20 +179,85 @@ export default function App() {
   const [visualizerModalOpen, setVisualizerModalOpen] = useState(false);
   const [playbackSettings, setPlaybackSettings] = useState<PlaybackSettings>(loadPlaybackSettings);
 
+  // User authentication state
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => authService.getCurrentUser());
+  const [authModalMode, setAuthModalMode] = useState<'signup' | 'signin' | null>(null);
+  const [userProfileModalOpen, setUserProfileModalOpen] = useState(false);
+  const [profileInitialSection, setProfileInitialSection] = useState<'overview' | 'owner_logins'>('overview');
+  const [editingTrackMetadata, setEditingTrackMetadata] = useState<IndieTrack | null>(null);
+
+  useEffect(() => {
+    const unsub = authService.subscribe((user) => {
+      setCurrentUser(user);
+    });
+    return unsub;
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = trackMetadataService.subscribeUserTrackMetadata((overrides) => {
+      setMetadataOverrides(overrides);
+      setTracks((prev) => applyTrackMetadataOverrides(prev, overrides));
+      setCurrentTrack((prev) =>
+        prev && overrides[prev.id] ? applyTrackMetadataOverride(prev, overrides[prev.id]) : prev
+      );
+      setQueue((prev) => applyTrackMetadataOverrides(prev, overrides));
+    });
+    return unsubscribe;
+  }, [currentUser?.id]);
+
+  useEffect(() => {
+    savePlaylistsToStorage(playlists);
+  }, [playlists]);
+
+  const listingPlaylists = useMemo(
+    () => buildListingPlaylists(playlists, likedTrackIds, downloadedTrackIds),
+    [playlists, likedTrackIds, downloadedTrackIds]
+  );
+
+  const activeHomePlaylist = useMemo(
+    () => resolveActiveHomePlaylist(listingPlaylists, activeHomePlaylistId),
+    [listingPlaylists, activeHomePlaylistId]
+  );
+
+  const activeHomePlaylistTracks = useMemo(
+    () => getPlaylistListingTracks(activeHomePlaylist, tracks),
+    [activeHomePlaylist, tracks]
+  );
+
+  const handleSelectActiveHomePlaylist = (playlistId: string) => {
+    setActiveHomePlaylistId(playlistId);
+    saveActiveHomePlaylistId(playlistId);
+    const chosen = listingPlaylists.find((p) => p.id === playlistId);
+    if (chosen) {
+      showToast(`Home main listing switched to "${chosen.title}"`);
+    }
+  };
+
   // Sync crossfade duration to audio engine on load & change
   useEffect(() => {
     audioEngine.setCrossfadeDuration(playbackSettings.crossfadeDuration);
   }, [playbackSettings.crossfadeDuration]);
 
   const handleUpdateSettings = (newSettings: PlaybackSettings) => {
+    const prev = playbackSettings;
     setPlaybackSettings(newSettings);
     savePlaybackSettings(newSettings);
     audioEngine.setCrossfadeDuration(newSettings.crossfadeDuration);
-    showToast(
-      newSettings.crossfadeDuration === 0
-        ? 'Crossfade disabled'
-        : `Crossfade set to ${newSettings.crossfadeDuration}s smooth transition 🎧`
-    );
+    if (newSettings.lockScreenPlayback !== prev.lockScreenPlayback) {
+      showToast(
+        newSettings.lockScreenPlayback
+          ? 'Lock-Screen & Background Play enabled 🔒🎵'
+          : 'Lock-Screen Play disabled'
+      );
+    } else if (newSettings.crossfadeDuration !== prev.crossfadeDuration) {
+      showToast(
+        newSettings.crossfadeDuration === 0
+          ? 'Crossfade disabled'
+          : `Crossfade set to ${newSettings.crossfadeDuration}s smooth transition 🎧`
+      );
+    } else {
+      showToast('Playback settings updated 🎧');
+    }
   };
 
   // Toast notification
@@ -142,17 +270,158 @@ export default function App() {
     }, 3000);
   };
 
+  // Smart recommendation & listening session state
+  const [historyRevision, setHistoryRevision] = useState(0);
+  const [sessionPlayedIds, setSessionPlayedIds] = useState<Set<string>>(() =>
+    initialDefaultTrack ? new Set([initialDefaultTrack.id]) : new Set()
+  );
+  const playHistoryStackRef = useRef<IndieTrack[]>([]);
+  const isNavigatingBackRef = useRef(false);
+
+  useEffect(() => {
+    return listeningHistoryService.subscribe(() => {
+      setHistoryRevision((prev) => prev + 1);
+    });
+  }, []);
+
   // Keep references for callbacks
   const queueRef = useRef(queue);
   queueRef.current = queue;
   const currentTrackRef = useRef(currentTrack);
   currentTrackRef.current = currentTrack;
+  const currentTimeRef = useRef(currentTime);
+  currentTimeRef.current = currentTime;
+  const durationRef = useRef(duration);
+  durationRef.current = duration;
   const tracksRef = useRef(tracks);
   tracksRef.current = tracks;
   const repeatModeRef = useRef(repeatMode);
   repeatModeRef.current = repeatMode;
   const isShuffleRef = useRef(isShuffle);
   isShuffleRef.current = isShuffle;
+  const likedTrackIdsRef = useRef(likedTrackIds);
+  likedTrackIdsRef.current = likedTrackIds;
+  const sessionPlayedIdsRef = useRef(sessionPlayedIds);
+  sessionPlayedIdsRef.current = sessionPlayedIds;
+  const playbackSettingsRef = useRef(playbackSettings);
+  playbackSettingsRef.current = playbackSettings;
+  const isPlayingRef = useRef(isPlaying);
+  isPlayingRef.current = isPlaying;
+
+  // Dynamic Vibe Match mode (energy + melancholy sonic queue)
+  const [isVibeMatchActive, setIsVibeMatchActive] = useState(false);
+  const isVibeMatchActiveRef = useRef(isVibeMatchActive);
+  isVibeMatchActiveRef.current = isVibeMatchActive;
+  const vibeSessionHistoryRef = useRef<Set<string>>(new Set());
+
+  const syncVibeMatchQueueForTrack = (
+    anchorTrack: IndieTrack,
+    catalogList: IndieTrack[],
+    source: 'toggle' | 'dynamic_switch' = 'dynamic_switch'
+  ) => {
+    const dislikedIds = new Set(
+      listeningHistoryService
+        .getSkipped()
+        .filter((s) => s.reason === 'disliked')
+        .map((s) => s.trackId)
+    );
+
+    if (vibeSessionHistoryRef.current.size >= Math.max(12, catalogList.length - 6)) {
+      vibeSessionHistoryRef.current = new Set([anchorTrack.id]);
+    } else {
+      vibeSessionHistoryRef.current.add(anchorTrack.id);
+    }
+
+    let result = buildVibeMatchQueue(anchorTrack, catalogList, {
+      limit: 12,
+      excludeIds: vibeSessionHistoryRef.current,
+      dismissedIds: dislikedIds,
+    });
+
+    if (result.tracks.length < 4 && catalogList.length > 5) {
+      vibeSessionHistoryRef.current = new Set([anchorTrack.id]);
+      result = buildVibeMatchQueue(anchorTrack, catalogList, {
+        limit: 12,
+        excludeIds: vibeSessionHistoryRef.current,
+        dismissedIds: dislikedIds,
+      });
+    }
+
+    setQueue(result.tracks);
+    listeningHistoryService.recordVibeMatchUsage(
+      anchorTrack,
+      result.vibeLabel,
+      result.tracks.length,
+      source
+    );
+    return result;
+  };
+
+  const vibeAnchorProfile = useMemo(
+    () => (isVibeMatchActive && currentTrack ? computeSonicProfile(currentTrack) : null),
+    [isVibeMatchActive, currentTrack]
+  );
+
+  const vibeLabel = useMemo(
+    () => (vibeAnchorProfile ? describeSonicVibe(vibeAnchorProfile) : undefined),
+    [vibeAnchorProfile]
+  );
+
+  const vibeMatchByTrackId = useMemo(() => {
+    if (!isVibeMatchActive || !currentTrack) return {};
+    const map: Record<string, VibeMatchItem> = {};
+    for (const qTrack of queue) {
+      map[qTrack.id] = scoreSonicSimilarity(currentTrack, qTrack);
+    }
+    return map;
+  }, [isVibeMatchActive, currentTrack, queue]);
+
+  const handleToggleVibeMatch = () => {
+    const anchor = currentTrackRef.current;
+    if (!anchor) {
+      showToast('Play a track first to match its sonic vibe');
+      return;
+    }
+
+    if (isVibeMatchActiveRef.current) {
+      isVibeMatchActiveRef.current = false;
+      setIsVibeMatchActive(false);
+      vibeSessionHistoryRef.current.clear();
+      showToast('Vibe Match paused');
+      return;
+    }
+
+    vibeSessionHistoryRef.current = new Set([anchor.id]);
+    isVibeMatchActiveRef.current = true;
+    setIsVibeMatchActive(true);
+    const result = syncVibeMatchQueueForTrack(anchor, tracksRef.current, 'toggle');
+    const ePct = Math.round(result.anchorProfile.energy * 100);
+    const mPct = Math.round(result.anchorProfile.melancholy * 100);
+    showToast(`Vibe Match ON · E ${ePct}% · M ${mPct}% (${result.vibeLabel})`);
+  };
+
+  const smartRecommendations = useMemo(() => {
+    const excludeIds = new Set(queue.map((q) => q.id));
+    return getPersonalizedNextTracks({
+      currentTrack,
+      catalog: tracks,
+      likedTrackIds,
+      recentHistory: listeningHistoryService.getHistory(),
+      skippedTracks: listeningHistoryService.getSkipped(),
+      sessionPlayedIds,
+      preferredLanguages: playbackSettings.preferredLanguages,
+      excludeTrackIds: excludeIds,
+      limit: 12,
+    });
+  }, [
+    currentTrack?.id,
+    tracks,
+    likedTrackIds,
+    historyRevision,
+    sessionPlayedIds,
+    playbackSettings.preferredLanguages,
+    queue,
+  ]);
 
   // Initialize AudioEngine callbacks
   useEffect(() => {
@@ -170,10 +439,11 @@ export default function App() {
       }
     });
 
-    // Check URL parameters for shared links (?track=... or ?playlist=... or ?autostart=1)
+    // Check URL parameters for shared links (?track=... or ?playlist=... or ?plj=... or ?autostart=1)
     const params = new URLSearchParams(window.location.search);
     const sharedTrackId = params.get('track');
     const sharedPlaylistId = params.get('playlist');
+    const sharedPlaylistJson = params.get(PLAYLIST_JSON_QUERY_PARAM);
     const sharedPayloadStr = params.get('s');
 
     if (sharedPayloadStr) {
@@ -183,13 +453,43 @@ export default function App() {
       }
     }
 
+    if (sharedPlaylistJson) {
+      const catalogIds = new Set(INITIAL_TRACKS.map((t) => t.id));
+      const imported = decodePlaylistJsonPayload(sharedPlaylistJson, catalogIds);
+      if (imported) {
+        const importedPlaylist = createPlaylistFromImport(imported);
+        setPlaylists((prev) => {
+          const existingMatch = prev.find(
+            (p) =>
+              p.title === importedPlaylist.title &&
+              p.trackIds.length === importedPlaylist.trackIds.length &&
+              p.trackIds.every((id, idx) => id === importedPlaylist.trackIds[idx])
+          );
+          if (existingMatch) {
+            setSelectedPlaylistId(existingMatch.id);
+            return prev;
+          }
+          setSelectedPlaylistId(importedPlaylist.id);
+          return [importedPlaylist, ...prev];
+        });
+        showToast(
+          `Imported playlist "${imported.title}" (${imported.matchedTrackCount} ${imported.matchedTrackCount === 1 ? 'track' : 'tracks'}) from JSON link`
+        );
+        // Strip ?plj= from URL cleanly so reloads don't re-import
+        params.delete(PLAYLIST_JSON_QUERY_PARAM);
+        const cleanQuery = params.toString();
+        const nextUrl = `${window.location.pathname}${cleanQuery ? `?${cleanQuery}` : ''}${window.location.hash}`;
+        window.history.replaceState({}, '', nextUrl);
+      }
+    }
+
     if (sharedTrackId) {
       const found = INITIAL_TRACKS.find((t) => t.id === sharedTrackId);
       if (found) {
         setCurrentTrack(found);
         setDuration(found.duration);
       }
-    } else if (sharedPlaylistId) {
+    } else if (sharedPlaylistId && !sharedPlaylistJson) {
       const foundPl = INITIAL_PLAYLISTS.find((p) => p.id === sharedPlaylistId);
       if (foundPl) {
         setSelectedPlaylistId(foundPl.id);
@@ -199,6 +499,8 @@ export default function App() {
     const tabParam = params.get('tab');
     if (tabParam === 'discover') {
       setActiveTab('discover');
+    } else if (tabParam === 'curator') {
+      setActiveTab('curator');
     } else if (tabParam === 'search') {
       setActiveTab('search');
     } else if (tabParam === 'jam') {
@@ -215,12 +517,27 @@ export default function App() {
 
   // Playback control handlers
   const handlePlayTrack = (track: IndieTrack) => {
-    // If track is from online search or external, ensure it is added to track catalog
+    // Push previous track onto back-stack unless we are stepping backward
+    if (!isNavigatingBackRef.current && currentTrackRef.current && currentTrackRef.current.id !== track.id) {
+      playHistoryStackRef.current = [currentTrackRef.current, ...playHistoryStackRef.current.slice(0, 29)];
+    }
+    isNavigatingBackRef.current = false;
+
+    // If track is from online search or external, ensure it is added to track catalog without duplicates
     setTracks((prev) => {
-      if (!prev.some((t) => t.id === track.id)) {
+      const exists = prev.some((t) => t.id === track.id || (track.youtubeId && t.youtubeId === track.youtubeId));
+      if (!exists) {
         return [track, ...prev];
       }
       return prev;
+    });
+    setSessionPlayedIds((prev) => {
+      const next = new Set(prev);
+      next.add(track.id);
+      if (next.size >= Math.max(8, tracksRef.current.length - 2)) {
+        return new Set([track.id]);
+      }
+      return next;
     });
     setCurrentTrack(track);
     setDuration(track.duration);
@@ -228,16 +545,26 @@ export default function App() {
     setIsPlaying(true);
     setSeekRequest(null);
 
+    if (isVibeMatchActiveRef.current) {
+      const nextCatalog = tracksRef.current.some(
+        (t) => t.id === track.id || (track.youtubeId && t.youtubeId === track.youtubeId)
+      )
+        ? tracksRef.current
+        : [track, ...tracksRef.current];
+      syncVibeMatchQueueForTrack(track, nextCatalog);
+    }
+
     // FullSongPlayer acts as the master playback coordinator:
     // It plays the high-fidelity video/audio stream, auto-resolves un-indexed songs,
-    // and immediately falls back to Web Audio / preview if YouTube embed is unavailable
+    // and continuously heals without falling back to synthetic chiptune beeps
     audioEngine.stop();
+    listeningHistoryService.recordPlay(track, 0, false);
     showToast(`Now playing: "${track.title}" 🎵`);
   };
 
   const handleAddTrackToLibrary = (track: IndieTrack) => {
     setTracks((prev) => {
-      if (prev.some((t) => t.id === track.id)) return prev;
+      if (prev.some((t) => t.id === track.id || (track.youtubeId && t.youtubeId === track.youtubeId))) return prev;
       return [track, ...prev];
     });
     showToast(`Added "${track.title}" by ${track.artist} to your Library! 🎵`);
@@ -245,7 +572,7 @@ export default function App() {
 
   const handleAddTrackFromAnywhere = (track: IndieTrack, autoPlay = false) => {
     setTracks((prev) => {
-      if (prev.some((t) => t.id === track.id)) return prev;
+      if (prev.some((t) => t.id === track.id || (track.youtubeId && t.youtubeId === track.youtubeId))) return prev;
       return [track, ...prev];
     });
     showToast(`Added "${track.title}" by ${track.artist} to Library! 🎵`);
@@ -262,20 +589,16 @@ export default function App() {
   const handleResume = () => {
     if (currentTrack) {
       setIsPlaying(true);
-      if (!currentTrack.youtubeId) {
-        audioEngine.resume();
-      }
     }
   };
 
   const handleSeek = (seconds: number) => {
     setCurrentTime(seconds);
-    if (currentTrack?.youtubeId) {
-      setSeekRequest(seconds);
-      setTimeout(() => setSeekRequest(null), 300);
-    } else {
+    setSeekRequest(seconds);
+    if (!currentTrackRef.current?.youtubeId) {
       audioEngine.seek(seconds);
     }
+    setTimeout(() => setSeekRequest(null), 300);
   };
 
   const handleVolumeChange = (vol: number) => {
@@ -302,12 +625,27 @@ export default function App() {
   };
 
   const handleNextTrack = () => {
+    // Record skip or play in listeningHistoryService
+    if (currentTrackRef.current) {
+      const elapsed = currentTimeRef.current;
+      const totalDur = durationRef.current;
+      if (elapsed > 0 && elapsed < 25) {
+        listeningHistoryService.recordSkip(currentTrackRef.current, Math.round(elapsed), 'early_skip');
+      } else if (elapsed >= 25) {
+        listeningHistoryService.recordPlay(
+          currentTrackRef.current,
+          Math.round(elapsed),
+          elapsed >= (totalDur - 15)
+        );
+      }
+    }
+
     if (repeatModeRef.current === 'one' && currentTrackRef.current) {
       handlePlayTrack(currentTrackRef.current);
       return;
     }
 
-    // Check queue first
+    // Check manual queue first
     if (queueRef.current.length > 0) {
       const nextTrack = queueRef.current[0];
       setQueue((prev) => prev.slice(1));
@@ -315,9 +653,28 @@ export default function App() {
       return;
     }
 
-    // Otherwise next in current track list
     const currentList = tracksRef.current;
     if (currentList.length === 0) return;
+
+    // Smart Auto-Next picks the next song tailored to what the listener played & liked
+    if (playbackSettingsRef.current.smartAutoNext) {
+      const smartPick = pickSmartNextTrack(
+        {
+          currentTrack: currentTrackRef.current,
+          catalog: currentList,
+          likedTrackIds: likedTrackIdsRef.current,
+          recentHistory: listeningHistoryService.getHistory(),
+          skippedTracks: listeningHistoryService.getSkipped(),
+          sessionPlayedIds: sessionPlayedIdsRef.current,
+          preferredLanguages: playbackSettingsRef.current.preferredLanguages,
+        },
+        isShuffleRef.current
+      );
+      if (smartPick) {
+        handlePlayTrack(smartPick);
+        return;
+      }
+    }
 
     if (isShuffleRef.current) {
       const randomIdx = Math.floor(Math.random() * currentList.length);
@@ -330,13 +687,25 @@ export default function App() {
     handlePlayTrack(currentList[nextIdx]);
   };
 
+  const handleDismissRecommendation = (track: IndieTrack) => {
+    listeningHistoryService.recordSkip(track, 0, 'disliked');
+    showToast(`Got it — tuning next suggestions away from "${track.title}"`);
+  };
+
   const handlePreviousTrack = () => {
-    if (currentTime > 4 && currentTrack) {
+    if (currentTimeRef.current > 4 && currentTrackRef.current) {
       handleSeek(0);
       return;
     }
-    const currentList = tracks;
-    const currentIdx = currentList.findIndex((t) => t.id === currentTrack?.id);
+    if (playHistoryStackRef.current.length > 0) {
+      const prevTrack = playHistoryStackRef.current[0];
+      playHistoryStackRef.current = playHistoryStackRef.current.slice(1);
+      isNavigatingBackRef.current = true;
+      handlePlayTrack(prevTrack);
+      return;
+    }
+    const currentList = tracksRef.current;
+    const currentIdx = currentList.findIndex((t) => t.id === currentTrackRef.current?.id);
     const prevIdx = (currentIdx - 1 + currentList.length) % currentList.length;
     handlePlayTrack(currentList[prevIdx]);
   };
@@ -350,10 +719,95 @@ export default function App() {
       } else {
         next.add(trackId);
         showToast('Saved to your Liked Songs ❤️');
+        const trk = tracks.find((t) => t.id === trackId);
+        if (trk) {
+          listeningHistoryService.recordPlay(trk, 60, true);
+        }
       }
       return next;
     });
   };
+
+  // Global keyboard & hardware media-key shortcuts (Space, Left/Right Arrows, L, Media*)
+  const hasBlockingModalOpen =
+    shareModalOpen ||
+    createPlaylistModalOpen ||
+    addMusicModalOpen ||
+    settingsModalOpen ||
+    androidModalOpen ||
+    authModalMode !== null ||
+    userProfileModalOpen ||
+    editingTrackMetadata !== null;
+
+  const keyboardHandlersRef = useRef({
+    hasBlockingModalOpen: false,
+    onPlay: () => {},
+    onPause: () => {},
+    onNext: () => {},
+    onPrevious: () => {},
+    onToggleLike: (_trackId: string) => {},
+  });
+  keyboardHandlersRef.current = {
+    hasBlockingModalOpen,
+    onPlay: handleResume,
+    onPause: handlePause,
+    onNext: handleNextTrack,
+    onPrevious: handlePreviousTrack,
+    onToggleLike: handleToggleLike,
+  };
+
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      const targetInfo = classifyShortcutTarget(e.target);
+      const action = resolveGlobalMediaShortcut({
+        key: e.key,
+        code: e.code,
+        repeat: e.repeat,
+        defaultPrevented: e.defaultPrevented,
+        ctrlKey: e.ctrlKey,
+        metaKey: e.metaKey,
+        altKey: e.altKey,
+        ...targetInfo,
+        hasBlockingModalOpen: keyboardHandlersRef.current.hasBlockingModalOpen,
+      });
+
+      if (!action) return;
+
+      e.preventDefault();
+
+      switch (action) {
+        case 'toggle_play_pause':
+          if (isPlayingRef.current) {
+            keyboardHandlersRef.current.onPause();
+          } else {
+            keyboardHandlersRef.current.onPlay();
+          }
+          break;
+        case 'play':
+          keyboardHandlersRef.current.onPlay();
+          break;
+        case 'pause':
+          keyboardHandlersRef.current.onPause();
+          break;
+        case 'next_track':
+          keyboardHandlersRef.current.onNext();
+          break;
+        case 'previous_track':
+          keyboardHandlersRef.current.onPrevious();
+          break;
+        case 'toggle_like':
+          if (currentTrackRef.current) {
+            keyboardHandlersRef.current.onToggleLike(currentTrackRef.current.id);
+          }
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleGlobalKeyDown);
+    };
+  }, []);
 
   const handleAddToQueue = (track: IndieTrack) => {
     setQueue((prev) => [...prev, track]);
@@ -371,6 +825,12 @@ export default function App() {
     const firstTrack = listToPlay[0];
     const rest = listToPlay.slice(1);
 
+    if (isVibeMatchActiveRef.current) {
+      isVibeMatchActiveRef.current = false;
+      setIsVibeMatchActive(false);
+      vibeSessionHistoryRef.current.clear();
+    }
+
     setQueue(rest);
     handlePlayTrack(firstTrack);
     showToast(`Playing "${playlist.title}"`);
@@ -381,7 +841,27 @@ export default function App() {
     setPlaylists((prev) => [newPl, ...prev]);
     setSelectedPlaylistId(newPl.id);
     setSelectedArtistId(null);
-    showToast(`Created playlist "${newPl.title}"`);
+    setActiveHomePlaylistId(newPl.id);
+    saveActiveHomePlaylistId(newPl.id);
+    showToast(`Created playlist "${newPl.title}" & set as Home listing`);
+  };
+
+  const handleSaveCuratedPlaylist = (title: string, description: string, trackIds: string[]) => {
+    const newPl: Playlist = {
+      id: `ai-pl-${Date.now()}`,
+      title,
+      description,
+      coverGradient: 'from-purple-600 via-indigo-600 to-emerald-500',
+      coverEmoji: '✨',
+      trackIds,
+      isPersonalized: true,
+      createdAt: 'Just now',
+      owner: 'Apna Music AI',
+    };
+    setPlaylists((prev) => [newPl, ...prev]);
+    setActiveHomePlaylistId(newPl.id);
+    saveActiveHomePlaylistId(newPl.id);
+    showToast(`Added "${title}" to your Library & Home listing! 📚`);
   };
 
   const handleAddTrackToPlaylist = (playlistId: string, trackId: string) => {
@@ -435,6 +915,55 @@ export default function App() {
     setShareTrack(null);
     setSharePlaylist(pl);
     setShareModalOpen(true);
+  };
+
+  // Track metadata & custom tag editing
+  const handleOpenEditMetadata = (track: IndieTrack) => {
+    setEditingTrackMetadata(track);
+  };
+
+  const handleSaveTrackMetadata = async (override: TrackMetadataOverride) => {
+    const updatedOverrides = await trackMetadataService.saveMetadataOverride(
+      override,
+      metadataOverrides
+    );
+    setMetadataOverrides(updatedOverrides);
+    setTracks((prev) =>
+      prev.map((t) =>
+        t.id === override.trackId ? applyTrackMetadataOverride(t, override) : t
+      )
+    );
+    setCurrentTrack((prev) =>
+      prev && prev.id === override.trackId ? applyTrackMetadataOverride(prev, override) : prev
+    );
+    setQueue((prev) =>
+      prev.map((t) =>
+        t.id === override.trackId ? applyTrackMetadataOverride(t, override) : t
+      )
+    );
+    showToast(`Saved metadata & tags for "${override.title}"`);
+  };
+
+  const handleResetTrackMetadata = async (trackId: string) => {
+    const updatedOverrides = await trackMetadataService.resetMetadataOverride(
+      trackId,
+      metadataOverrides
+    );
+    setMetadataOverrides(updatedOverrides);
+    setTracks((prev) =>
+      prev.map((t) =>
+        t.id === trackId ? restoreOriginalTrack(trackId, INITIAL_TRACKS, t) || t : t
+      )
+    );
+    setCurrentTrack((prev) =>
+      prev && prev.id === trackId ? restoreOriginalTrack(trackId, INITIAL_TRACKS, prev) : prev
+    );
+    setQueue((prev) =>
+      prev.map((t) =>
+        t.id === trackId ? restoreOriginalTrack(trackId, INITIAL_TRACKS, t) || t : t
+      )
+    );
+    showToast('Restored original track metadata');
   };
 
   // Download actions
@@ -545,45 +1074,80 @@ export default function App() {
     owner: 'You',
   };
 
+  const themeBgClass =
+    playbackSettings.theme === 'amoled-black'
+      ? 'bg-black'
+      : playbackSettings.theme === 'gym-neon'
+      ? 'bg-[#080d0a]'
+      : 'bg-[#0b0d17]';
+
   return (
-    <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#0d0d11] text-[#f3f3f3]">
+    <div
+      data-theme={playbackSettings.theme}
+      className={`flex flex-col h-screen w-screen overflow-hidden ${themeBgClass} text-[#f3f3f3] transition-colors duration-300`}
+    >
       {/* Toast alert */}
       {toastMessage && (
         <div
           role="status"
           aria-live="polite"
-          className="fixed top-5 left-1/2 -translate-x-1/2 z-50 bg-[#1ed760] text-black font-bold text-xs md:text-sm px-5 py-2.5 rounded-full shadow-2xl flex items-center gap-2 animate-bounce"
+          className="fixed top-16 md:top-5 left-1/2 -translate-x-1/2 z-50 bg-white text-black font-bold text-xs md:text-sm px-4 py-2 rounded-2xl shadow-2xl flex items-center gap-2 max-w-[calc(100vw-2rem)] text-center"
         >
-          <span>✨</span>
           <span>{toastMessage}</span>
         </div>
       )}
 
-      {/* Android Mobile Top App Bar (Native Android feel on phone) */}
-      <header className="md:hidden flex items-center justify-between px-3.5 py-2.5 bg-[#0a0a0d] border-b border-white/10 shrink-0 select-none z-30">
-        <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-[#1ed760] to-emerald-400 flex items-center justify-center text-black font-extrabold shadow-sm">
-            <Radio className="w-4 h-4" />
-          </div>
-          <span className="font-extrabold text-sm tracking-tight text-white">IndieWave</span>
-          <span className="text-[9px] font-bold uppercase tracking-wider bg-[#1ed760]/20 text-[#1ed760] px-1.5 py-0.2 rounded-full border border-[#1ed760]/30 font-mono">
-            Android
-          </span>
+      {/* Mobile Top App Bar */}
+      <header className="md:hidden flex items-center justify-between px-3.5 py-2.5 bg-[#0b0d17]/95 backdrop-blur-md border-b border-white/[0.08] shrink-0 select-none z-30">
+        <div className="flex items-center gap-2.5">
+          <img
+            src="/assets/apna_music_logo.jpg"
+            alt="Apna Music Logo"
+            className="w-8 h-8 rounded-lg object-cover border border-white/15 shadow-sm"
+          />
+          <span className="font-bold text-sm tracking-tight text-white">Apna Music</span>
         </div>
 
         <div className="flex items-center gap-1.5">
-          <button
-            onClick={() => setAndroidModalOpen(true)}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-gradient-to-r from-[#1ed760] to-emerald-400 text-black font-extrabold text-[11px] shadow-sm active:scale-95 transition-all"
-            title="Install Android App"
-          >
-            <Smartphone className="w-3.5 h-3.5 stroke-[2.5]" />
-            <span>Install</span>
-          </button>
+          <PWAInstallButton
+            variant="mobile"
+            onOpenInstallModal={() => setAndroidModalOpen(true)}
+            onInstalledToast={showToast}
+          />
+          {currentUser ? (
+            <button
+              onClick={() => {
+                setProfileInitialSection(
+                  isOwnerUser(currentUser.email, currentUser.isEmailVerified ?? true)
+                    ? 'owner_logins'
+                    : 'overview'
+                );
+                setUserProfileModalOpen(true);
+              }}
+              className="flex items-center gap-1.5 p-1 pr-2 rounded-full bg-white/[0.06] border border-white/10 active:scale-95 transition-all"
+            >
+              <img
+                src={currentUser.avatarUrl}
+                alt={currentUser.name}
+                className="w-6 h-6 rounded-full object-cover border border-white/25"
+              />
+              <span className="text-[11px] font-semibold text-white max-w-[65px] truncate">
+                {currentUser.name.split(' ')[0]}
+              </span>
+            </button>
+          ) : (
+            <button
+              onClick={() => setAuthModalMode('signup')}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-white text-black font-bold text-[11px] shadow-sm active:scale-95 transition-all cursor-pointer"
+            >
+              <UserPlus className="w-3 h-3 stroke-[2.5]" />
+              <span>Sign Up</span>
+            </button>
+          )}
 
           <button
             onClick={() => handleSelectNavTab('search')}
-            className="p-1.5 text-neutral-300 hover:text-white rounded-full bg-white/5 active:scale-95 transition-all"
+            className="p-1.5 text-slate-300 hover:text-white rounded-full bg-white/[0.06] active:scale-95 transition-all"
             aria-label="Search tracks and artists"
           >
             <Search className="w-4 h-4" />
@@ -591,7 +1155,7 @@ export default function App() {
 
           <button
             onClick={() => setSettingsModalOpen(true)}
-            className="p-1.5 text-neutral-300 hover:text-white rounded-full bg-white/5 active:scale-95 transition-all"
+            className="p-1.5 text-slate-300 hover:text-white rounded-full bg-white/[0.06] active:scale-95 transition-all"
             aria-label="Playback Settings"
           >
             <Sliders className="w-4 h-4" />
@@ -618,10 +1182,81 @@ export default function App() {
           onOpenSettings={() => setSettingsModalOpen(true)}
           onOpenAndroidApp={() => setAndroidModalOpen(true)}
           crossfadeDuration={playbackSettings.crossfadeDuration}
+          user={currentUser}
+          onOpenAuth={(mode) => setAuthModalMode(mode)}
+          onOpenProfile={() => {
+            setProfileInitialSection('overview');
+            setUserProfileModalOpen(true);
+          }}
         />
 
         {/* Central Content Area */}
-        <main className="flex-1 overflow-y-auto px-3 sm:px-4 md:px-8 py-4 sm:py-6 relative pb-16 md:pb-6">
+        <main className="flex-1 overflow-y-auto px-3 sm:px-4 md:px-8 py-4 sm:py-6 relative pb-4 md:pb-6">
+          {/* Top Desktop Action Bar */}
+          <div className="hidden md:flex items-center justify-between pb-4 mb-3 border-b border-white/[0.06]">
+            <div className="flex items-center gap-2 text-xs text-slate-400">
+              <span className="font-semibold text-white">Apna Music</span>
+              <span>·</span>
+              <span>Hi-Fi Streaming & Discovery</span>
+            </div>
+
+            <div className="flex items-center gap-2.5">
+              <PWAInstallButton
+                variant="desktop"
+                onOpenInstallModal={() => setAndroidModalOpen(true)}
+                onInstalledToast={showToast}
+              />
+              {currentUser ? (
+                <div className="flex items-center gap-2">
+                  {isOwnerUser(currentUser.email, currentUser.isEmailVerified ?? true) && (
+                    <button
+                      onClick={() => {
+                        setProfileInitialSection('owner_logins');
+                        setUserProfileModalOpen(true);
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/[0.06] hover:bg-white/[0.12] border border-white/15 text-sky-400 text-xs font-semibold transition-all cursor-pointer"
+                      title="View visitor logins (zero passwords)"
+                    >
+                      <Users className="w-3.5 h-3.5" />
+                      <span>Visitor Logins</span>
+                    </button>
+                  )}
+                  <button
+                    onClick={() => {
+                      setProfileInitialSection('overview');
+                      setUserProfileModalOpen(true);
+                    }}
+                    className="flex items-center gap-2.5 px-3 py-1.5 rounded-full bg-white/[0.05] hover:bg-white/[0.1] border border-white/10 transition-all cursor-pointer group"
+                  >
+                    <img
+                      src={currentUser.avatarUrl}
+                      alt={currentUser.name}
+                      className="w-6 h-6 rounded-full object-cover border border-white/20"
+                    />
+                    <span className="text-xs font-semibold text-white group-hover:text-sky-400 transition-colors">
+                      {currentUser.name}
+                    </span>
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setAuthModalMode('signin')}
+                    className="px-3.5 py-1.5 rounded-full text-xs font-semibold text-slate-300 hover:text-white hover:bg-white/[0.06] transition-all cursor-pointer"
+                  >
+                    Log In
+                  </button>
+                  <button
+                    onClick={() => setAuthModalMode('signup')}
+                    className="px-4 py-1.5 rounded-full bg-white hover:bg-slate-200 text-black text-xs font-bold flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer"
+                  >
+                    <UserPlus className="w-3.5 h-3.5 stroke-[2.5]" />
+                    <span>Sign Up Free</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
           {/* View Routing */}
           {selectedArtistId && activeArtist ? (
             <ArtistView
@@ -642,6 +1277,7 @@ export default function App() {
               downloadedTrackIds={downloadedTrackIds}
               downloadingTrackIds={downloadingTrackIds}
               onDownloadTrack={handleDownloadTrack}
+              onEditMetadata={handleOpenEditMetadata}
             />
           ) : activeTab === 'liked' ? (
             <PlaylistView
@@ -664,6 +1300,7 @@ export default function App() {
               onSelectArtist={handleSelectArtist}
               onAddTrackToPlaylist={handleAddTrackToPlaylist}
               userPlaylists={playlists}
+              onEditMetadata={handleOpenEditMetadata}
             />
           ) : activeTab === 'downloads' ? (
             <PlaylistView
@@ -686,6 +1323,7 @@ export default function App() {
               onSelectArtist={handleSelectArtist}
               onAddTrackToPlaylist={handleAddTrackToPlaylist}
               userPlaylists={playlists}
+              onEditMetadata={handleOpenEditMetadata}
             />
           ) : activeTab === 'library' ? (
             <LibraryView
@@ -714,6 +1352,10 @@ export default function App() {
               }}
               onOpenAddMusic={() => setAddMusicModalOpen(true)}
               onGoToLikedSongs={() => handleSelectNavTab('liked')}
+              onShareTrack={handleOpenShareTrack}
+              onAddToQueue={handleAddToQueue}
+              onAddToPlaylist={handleAddTrackToPlaylist}
+              onEditMetadata={handleOpenEditMetadata}
             />
           ) : selectedPlaylistId && activePlaylist ? (
             <PlaylistView
@@ -737,6 +1379,13 @@ export default function App() {
               onAddTrackToPlaylist={handleAddTrackToPlaylist}
               onDeletePlaylist={handleDeletePlaylist}
               userPlaylists={playlists}
+              isHomeMainListing={activeHomePlaylist?.id === activePlaylist.id}
+              onSetAsHomeListing={handleSelectActiveHomePlaylist}
+              onEditMetadata={handleOpenEditMetadata}
+              onEditPlaylist={(pl) => {
+                setEditingPlaylist(pl);
+                setCreatePlaylistModalOpen(true);
+              }}
             />
           ) : activeTab === 'discover' ? (
             <DiscoverView
@@ -753,6 +1402,23 @@ export default function App() {
               userPlaylists={playlists}
               onAddToPlaylist={handleAddTrackToPlaylist}
               onSavePersonalizedPlaylist={handleCreatePlaylist}
+              onGoToCurator={() => handleSelectNavTab('curator')}
+              onEditMetadata={handleOpenEditMetadata}
+            />
+          ) : activeTab === 'curator' ? (
+            <AICuratorView
+              tracks={tracks}
+              artists={artists}
+              currentTrack={currentTrack}
+              isPlaying={isPlaying}
+              likedTrackIds={likedTrackIds}
+              onPlayTrack={handlePlayTrack}
+              onPauseTrack={handlePause}
+              onToggleLike={handleToggleLike}
+              onSelectArtist={handleSelectArtist}
+              onSaveCuratedPlaylist={handleSaveCuratedPlaylist}
+              onAddToQueue={handleAddToQueue}
+              onShowToast={showToast}
             />
           ) : activeTab === 'search' ? (
             <SearchView
@@ -776,6 +1442,7 @@ export default function App() {
               downloadedTrackIds={downloadedTrackIds}
               downloadingTrackIds={downloadingTrackIds}
               onDownloadTrack={handleDownloadTrack}
+              onEditMetadata={handleOpenEditMetadata}
             />
           ) : activeTab === 'jam' ? (
             <SocialJamView
@@ -793,29 +1460,48 @@ export default function App() {
               reviews={reviews}
               currentTrack={currentTrack}
               isPlaying={isPlaying}
+              currentTime={currentTime}
+              duration={duration}
+              volume={volume}
+              isMuted={isMuted}
+              isShuffle={isShuffle}
+              repeatMode={repeatMode}
+              isLiked={currentTrack ? likedTrackIds.has(currentTrack.id) : false}
+              isVideoVisible={isVideoVisible}
               onPlayTrack={handlePlayTrack}
+              onPauseTrack={handlePause}
+              onResumeTrack={handleResume}
+              onNextTrack={handleNextTrack}
+              onPreviousTrack={handlePreviousTrack}
+              onSeek={handleSeek}
+              onVolumeChange={handleVolumeChange}
+              onToggleMute={handleToggleMute}
+              onToggleShuffle={handleToggleShuffle}
+              onToggleRepeat={handleToggleRepeat}
+              onToggleLike={handleToggleLike}
+              onToggleVideo={() => setIsVideoVisible((prev) => !prev)}
+              onPlayYouTubeTrack={(ytTrack) => handleAddTrackFromAnywhere(ytTrack, true)}
               onSelectPlaylist={handleSelectPlaylist}
               onSelectArtist={handleSelectArtist}
               onGoToDiscover={() => handleSelectNavTab('discover')}
               onOpenAndroidApp={() => setAndroidModalOpen(true)}
+              recommendedNextTracks={smartRecommendations}
+              onAddToQueue={handleAddToQueue}
+              onDismissRecommendation={handleDismissRecommendation}
+              listingPlaylists={listingPlaylists}
+              activeHomePlaylist={activeHomePlaylist}
+              activeHomePlaylistTracks={activeHomePlaylistTracks}
+              onSelectActiveHomePlaylist={handleSelectActiveHomePlaylist}
+              onPlayPlaylist={handlePlayPlaylist}
+              onOpenCreatePlaylist={() => {
+                setEditingPlaylist(null);
+                setCreatePlaylistModalOpen(true);
+              }}
             />
           )}
         </main>
 
-        {/* Right Sidebar: Social Friend Activity */}
-        <FriendActivityBar
-          friendActivities={friendActivities}
-          isOpen={friendActivityOpen}
-          onToggle={() => setFriendActivityOpen(!friendActivityOpen)}
-          onListenAlong={handleListenAlong}
-          onShareWithFriend={(friendName) => {
-            if (currentTrack) {
-              handleOpenShareTrack(currentTrack);
-            } else {
-              showToast(`Select a track to share with ${friendName}`);
-            }
-          }}
-        />
+
       </div>
 
       {/* Persistent Bottom Player Bar */}
@@ -852,21 +1538,29 @@ export default function App() {
         crossfadeDuration={playbackSettings.crossfadeDuration}
         isVisualizerOpen={visualizerModalOpen}
         onToggleVisualizer={setVisualizerModalOpen}
+        lockScreenPlayback={playbackSettings.lockScreenPlayback}
+        onEditMetadata={handleOpenEditMetadata}
+        isVibeMatchActive={isVibeMatchActive}
+        onToggleVibeMatch={handleToggleVibeMatch}
+        queueCount={queue.length}
       />
 
       {/* Persistent Native Android Bottom Navigation Bar */}
       <AndroidBottomNav
         activeTab={
-          activeTab === 'discover'
-            ? 'discover'
+          activeTab === 'curator'
+            ? 'curator'
+            : activeTab === 'search'
+            ? 'search'
             : activeTab === 'library' || selectedPlaylistId || activeTab === 'liked'
-            ? 'playlists'
+            ? 'library'
             : 'home'
         }
         onSelectTab={(tab) => {
           if (tab === 'home') handleSelectNavTab('home');
-          else if (tab === 'discover') handleSelectNavTab('discover');
-          else if (tab === 'playlists') {
+          else if (tab === 'search') handleSelectNavTab('search');
+          else if (tab === 'curator') handleSelectNavTab('curator');
+          else if (tab === 'library') {
             handleSelectNavTab('library');
           }
         }}
@@ -879,11 +1573,19 @@ export default function App() {
       {/* Full Song Master Audio & Video Player */}
       <FullSongPlayer
         currentTrack={currentTrack}
+        nextTrack={
+          queue[0] ||
+          (playbackSettings.smartAutoNext ? smartRecommendations[0]?.track : null) ||
+          (tracks.length > 0
+            ? tracks[(tracks.findIndex((t) => t.id === currentTrack?.id) + 1) % tracks.length]
+            : null)
+        }
         isPlaying={isPlaying}
         volume={volume}
         isMuted={isMuted}
         seekTime={seekRequest}
         crossfadeDuration={playbackSettings.crossfadeDuration}
+        lockScreenPlayback={playbackSettings.lockScreenPlayback}
         onTrackResolved={(trackId, ytId) => {
           setTracks((prev) =>
             prev.map((t) => (t.id === trackId ? { ...t, youtubeId: ytId, fullSongAvailable: true } : t))
@@ -900,6 +1602,10 @@ export default function App() {
           if (dur > 0) setDuration(dur);
         }}
         onTrackEnded={handleNextTrack}
+        onPlayRequest={handleResume}
+        onPauseRequest={handlePause}
+        onPreviousTrack={handlePreviousTrack}
+        onSeekRequest={handleSeek}
         isVideoVisible={isVideoVisible}
         onToggleVideo={() => setIsVideoVisible((v) => !v)}
       />
@@ -929,6 +1635,8 @@ export default function App() {
         onClose={() => setCreatePlaylistModalOpen(false)}
         onCreatePlaylist={handleCreatePlaylist}
         existingPlaylist={editingPlaylist}
+        knownTrackIds={new Set(tracks.map((t) => t.id))}
+        onShowToast={showToast}
       />
 
       <LyricsDrawer
@@ -937,6 +1645,10 @@ export default function App() {
         track={currentTrack}
         isLiked={currentTrack ? likedTrackIds.has(currentTrack.id) : false}
         onToggleLike={handleToggleLike}
+        currentTime={currentTime}
+        duration={duration}
+        isPlaying={isPlaying}
+        onSeek={handleSeek}
       />
 
       <QueueDrawer
@@ -944,9 +1656,25 @@ export default function App() {
         onClose={() => setQueueDrawerOpen(false)}
         currentTrack={currentTrack}
         queue={queue}
+        recommendedNextTracks={smartRecommendations}
         onPlayTrack={handlePlayTrack}
         onRemoveFromQueue={(idx) => setQueue((prev) => prev.filter((_, i) => i !== idx))}
-        onClearQueue={() => setQueue([])}
+        onClearQueue={() => {
+          setQueue([]);
+          if (isVibeMatchActive) {
+            isVibeMatchActiveRef.current = false;
+            setIsVibeMatchActive(false);
+            vibeSessionHistoryRef.current.clear();
+            showToast('Queue cleared · Vibe Match off');
+          }
+        }}
+        onAddToQueue={handleAddToQueue}
+        onDismissRecommendation={handleDismissRecommendation}
+        isVibeMatchActive={isVibeMatchActive}
+        vibeLabel={vibeLabel}
+        vibeAnchorProfile={vibeAnchorProfile}
+        vibeMatchByTrackId={vibeMatchByTrackId}
+        onToggleVibeMatch={handleToggleVibeMatch}
       />
 
       {/* Playback & Audio Settings Modal */}
@@ -955,12 +1683,56 @@ export default function App() {
         onClose={() => setSettingsModalOpen(false)}
         settings={playbackSettings}
         onUpdateSettings={handleUpdateSettings}
+        currentUser={currentUser}
+        onShowToast={showToast}
       />
 
       {/* Android App Install & WebAPK Modal */}
       <AndroidInstallModal
         isOpen={androidModalOpen}
         onClose={() => setAndroidModalOpen(false)}
+      />
+
+      {/* Offline Connectivity Indicator */}
+      <OfflineIndicator />
+
+      {/* Apna Music User Authentication Modal (Sign Up / Sign In) */}
+      <AuthModal
+        isOpen={authModalMode !== null}
+        initialMode={authModalMode || 'signup'}
+        onClose={() => setAuthModalMode(null)}
+        onSuccess={(user) => {
+          showToast(`Welcome to Apna Music, ${user.name}! 🏋️🎧`);
+        }}
+      />
+
+      {/* Apna Music User Profile & Gym Workout Stats Modal */}
+      {currentUser && (
+        <UserProfileModal
+          isOpen={userProfileModalOpen}
+          user={currentUser}
+          likedTrackCount={likedTrackIds.size}
+          downloadedTrackCount={downloadedTrackIds.size}
+          initialSection={profileInitialSection}
+          onClose={() => setUserProfileModalOpen(false)}
+          onSignOut={() => {
+            authService.signOut();
+            showToast('Signed out of Apna Music');
+          }}
+          onUpdateUser={(updated) => {
+            setCurrentUser(updated);
+            showToast(`Workout vibe updated to ${updated.gymVibe}! 🔥`);
+          }}
+        />
+      )}
+      {/* Track Metadata & Custom Tags Editor Modal */}
+      <EditMetadataModal
+        isOpen={editingTrackMetadata !== null}
+        track={editingTrackMetadata}
+        hasOverride={Boolean(editingTrackMetadata && metadataOverrides[editingTrackMetadata.id])}
+        onClose={() => setEditingTrackMetadata(null)}
+        onSave={handleSaveTrackMetadata}
+        onResetToOriginal={handleResetTrackMetadata}
       />
     </div>
   );

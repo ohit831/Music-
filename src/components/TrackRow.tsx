@@ -17,6 +17,7 @@ import {
   Download,
   CheckCircle2,
   Loader2,
+  Pencil,
 } from 'lucide-react';
 import { IndieTrack, formatDuration, Playlist } from '../utils/musicDiscovery';
 
@@ -37,6 +38,8 @@ interface TrackRowProps {
   isDownloaded?: boolean;
   isDownloading?: boolean;
   onDownloadTrack?: (track: IndieTrack) => void;
+  onEditMetadata?: (track: IndieTrack) => void;
+  onSelectTag?: (tag: string) => void;
 }
 
 export const TrackRow: React.FC<TrackRowProps> = ({
@@ -56,6 +59,8 @@ export const TrackRow: React.FC<TrackRowProps> = ({
   isDownloaded = false,
   isDownloading = false,
   onDownloadTrack,
+  onEditMetadata,
+  onSelectTag,
 }) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -165,6 +170,26 @@ export const TrackRow: React.FC<TrackRowProps> = ({
                 Added by {track.addedBy}
               </span>
             )}
+            {track.tags && track.tags.length > 0 && (
+              <div className="hidden sm:inline-flex items-center gap-1 truncate">
+                {track.tags.slice(0, 3).map((tag) => (
+                  <button
+                    key={`${track.id}-tag-${tag}`}
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (onSelectTag) onSelectTag(tag);
+                    }}
+                    className={`text-[10px] px-1.5 py-0.2 rounded bg-sky-400/10 text-sky-300 border border-sky-400/20 truncate max-w-[95px] ${
+                      onSelectTag ? 'hover:bg-sky-400/20 cursor-pointer' : 'cursor-default'
+                    }`}
+                    title={`#${tag}`}
+                  >
+                    #{tag}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -260,15 +285,31 @@ export const TrackRow: React.FC<TrackRowProps> = ({
         {/* Context Menu Button */}
         <div className="relative" ref={menuRef}>
           <button
+            type="button"
             onClick={() => setMenuOpen(!menuOpen)}
-            className="p-1.5 text-neutral-400 opacity-0 group-hover:opacity-100 hover:text-white rounded-full transition-colors"
+            className="p-1.5 text-neutral-400 opacity-80 sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100 hover:text-white rounded-full transition-colors cursor-pointer"
             aria-label={`More options for ${track.title}`}
+            title={`Track options for ${track.title}`}
           >
             <MoreHorizontal className="w-4 h-4" />
           </button>
 
           {menuOpen && (
-            <div className="absolute right-0 top-8 z-30 w-52 bg-[#1f1f25] border border-white/10 rounded-xl shadow-2xl p-1.5 space-y-1 animate-fade-in text-xs">
+            <div className="absolute right-0 top-8 z-30 w-56 bg-[#181a26] border border-white/15 rounded-xl shadow-2xl p-1.5 space-y-1 animate-fade-in text-xs">
+              {onEditMetadata && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onEditMetadata(track);
+                    setMenuOpen(false);
+                  }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-white hover:bg-white/10 text-left transition-colors cursor-pointer font-medium"
+                >
+                  <Pencil className="w-4 h-4 text-sky-400" />
+                  <span>Edit Metadata</span>
+                </button>
+              )}
+
               {onDownloadTrack && (
                 <button
                   onClick={() => {
@@ -276,7 +317,7 @@ export const TrackRow: React.FC<TrackRowProps> = ({
                     setMenuOpen(false);
                   }}
                   disabled={isDownloading}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-neutral-200 hover:text-white hover:bg-white/10 text-left transition-colors"
+                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-neutral-200 hover:text-white hover:bg-white/10 text-left transition-colors cursor-pointer"
                 >
                   {isDownloading ? (
                     <>
